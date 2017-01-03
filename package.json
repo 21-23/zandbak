@@ -6,7 +6,7 @@
   "scripts": {
   	"start": "",
   	"test:unit": "",
-  	"test:func": ""
+  	"test:func": "node ./test-func/test-css.js"
   },
   "repository": {
     "url": "git@github.com:kirilknysh/zandbak.git",

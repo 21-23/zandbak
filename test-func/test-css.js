@@ -42,7 +42,10 @@
 
 const zandbak = require('../app/zandbak');
 
-const sandbox = zandbak();
+const sandbox = zandbak({
+	zandbakOptions: { workersCount: 1, maxWorkersCount: 5, taskTimeoutMs: 500 },
+	eAppOptions: { showDevTools: true, browserWindow: { width: 800, height: 600, show: true }}
+});
 
 const rounds = [
 	{ url: `data:text/html,<!DOCTYPE html><html><body>
@@ -60,18 +63,18 @@ sandbox.on('solved', onTaskSolved);
 sandbox.resetWith(rounds[0], (sandbox) => {
 	sandbox.exec({});
 	sandbox.exec({});
-
-	setTimeout(() => {
-		sandbox.resetWith(null, () => { //STOP button
-			sandbox.resetWith(rounds[1], () => { // start next round init to be ready
-				sandbox.exec({});
-				sandbox.exec({});
-
-				setTimeout(() => {
-					sandbox.off('solved', onTaskSolved);
-					sandbox.destroy();
-				}, 10000);
-			});
-		});
-	}, 10000);
 });
+
+setTimeout(() => {
+	sandbox.resetWith(null, () => { //STOP button
+		sandbox.resetWith(rounds[1], () => { // start next round init to be ready
+			sandbox.exec({});
+			sandbox.exec({});
+		});
+	});
+}, 5000);
+
+setTimeout(() => {
+	sandbox.off('solved', onTaskSolved);
+	sandbox.destroy();
+}, 10000);

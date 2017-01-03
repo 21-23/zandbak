@@ -1,5 +1,7 @@
 const { app, BrowserWindow } = require('electron');
 
+const args = JSON.parse(process.argv[2]);
+
 function exit() {
 	const windows = BrowserWindow.getAllWindows();
 

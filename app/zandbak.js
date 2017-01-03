@@ -6,12 +6,10 @@ const electron = require('electron');
 
 const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 
-function createEAppProc() {
+function createEAppProc(options) {
 	const child = proc.spawn(
 		electron,
-		[eAppPath].concat(JSON.stringify({
-			// options here
-		})),
+		[eAppPath].concat(JSON.stringify(options || {})),
 		{
 			stdio: [null, process.stdout, process.stderrm, 'ipc']
 		}
@@ -20,9 +18,14 @@ function createEAppProc() {
 	return child;
 }
 
-module.exports = function zandbak() {
+function destroyEAppProc(eApp) {
+	eApp.removeAllListeners('message');
+	eApp.kill('SIGINT');
+}
+
+module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
 	const emitter = new EventEmitter();
-	let eApp = createEAppProc();
+	let eApp = createEAppProc(eAppOptions);
 
 	eApp.on('message', (message) => {
 		console.log('zandbak::onEAppMessage', message);
@@ -34,8 +37,8 @@ module.exports = function zandbak() {
 		},
 		exec: (task) => {},
 		destroy: () => {
-			eApp.removeAllListeners('message');
-			eApp.kill('SIGINT');
+			instance.off();
+			destroyEAppProc(eApp)
 			eApp = null;
 		},
 		on: (eventName, listener) => {

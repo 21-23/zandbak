@@ -1,0 +1,20 @@
+{
+  "name": "zandbak",
+  "version": "1.0.0",
+  "description": "JS/HTML sandbox",
+  "main": "app/zandbak.js",
+  "scripts": {
+  	"start": "",
+  	"test:unit": "",
+  	"test:func": ""
+  },
+  "repository": {
+    "url": "git@github.com:kirilknysh/zandbak.git",
+    "type": "git"
+  },
+  "author": "Kiril Knysh <k.knysh@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^1.4.13"
+  }
+}

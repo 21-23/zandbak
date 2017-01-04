@@ -5,7 +5,7 @@ const EventEmitter = require('events');
 const _uniqueid = require('lodash.uniqueid');
 const electron = require('electron');
 
-const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, createJob, createWorkerInstance } = require('./helpers');
+const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, JOB_INT_ERROR, createJob, createWorkerInstance } = require('./helpers');
 
 const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 const emptySand = {
@@ -98,6 +98,7 @@ function onWorkerEmpty(workers, workerId, sand, eApp) {
 }
 
 function onWorkerReady(workers, workerId, jobs, zandbakOptions, eApp) {
+    // TODO: if this ready is from another sand?
     const worker = getWorkerById(workers, workerId);
 
     if (!worker) {
@@ -123,6 +124,14 @@ function onWorkerUnresponsive(workers, workerId, jobs, emitter, sand, eApp) {
 
     // force worker reload
     initWorker(workers, workerId, sand, eApp);
+}
+
+function reinitWorkers(workers, sand, eApp) {
+    workers.forEach((worker) => {
+        if (worker.workerId) {
+            initWorker(workers, worker.workerId, sand, eApp);
+        }
+    });
 }
 
 function onWorkerStateChange({ workerId, state }, workers, jobs, sand, zandbakOptions, emitter, eApp) {
@@ -228,10 +237,20 @@ function onSolved({ workerId, result }, jobs, emitter) {
     removeJob(jobs, job);
 }
 
+function interruptJobs(jobs, emitter) {
+    while (jobs.length > 0) {
+        const job = jobs[0];
+
+        emitter.emit('solved', job.task, JOB_INT_ERROR);
+        removeJob(jobs, job);
+    }
+}
+
 
 module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
     const emitter = new EventEmitter();
     let eApp = createEAppProc(eAppOptions);
+    let isEAppReady = false; // TODO: workaround?
 
     let sand = emptySand;
     const jobs = [];
@@ -242,6 +261,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
 
         switch (type) {
             case 'e-app::ready':
+                isEAppReady = true;
                 return createWorkers(workers, eApp, zandbakOptions.workersCount);
             case 'e-app::workerStateChange':
                 return onWorkerStateChange(payload, workers, jobs, sand, zandbakOptions, emitter, eApp);
@@ -258,17 +278,20 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
     });
 
     const instance = {
-        resetWith: (newSand, callback) => {
+        resetWith: (newSand) => {
             sand = newSand || emptySand;
 
-            callback(instance);
+            interruptJobs(jobs, emitter);
+            reinitWorkers(workers, sand, eApp);
         },
         exec: (task) => {
             const job = createJob(_uniqueid('jobId'), task, JOB_STATE.ready);
 
             addJob(jobs, job);
 
-            tryExecJob(jobs, workers, zandbakOptions, eApp);
+            if (isEAppReady) {
+                tryExecJob(jobs, workers, zandbakOptions, eApp);
+            }
         },
         destroy: () => {
             instance.off();

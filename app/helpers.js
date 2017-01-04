@@ -35,3 +35,7 @@ exports.createWorkerInstance = function (workerId, state) {
 exports.UNRESPONSIVE_WORKER_ERROR = {
     error: 'unresponsive worker'
 };
+
+exports.JOB_INT_ERROR = {
+    error: 'job was interrupted'
+};

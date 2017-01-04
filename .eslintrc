@@ -1,0 +1,24 @@
+{
+    "extends": "airbnb-base",
+    "rules": {
+        "comma-dangle": 0,
+        "arrow-body-style": 0,
+        "no-shadow": 0,
+        "indent": ["error", 4, { "SwitchCase": 1 }],
+        "global-require": 0,
+        "func-names": "off",
+        "no-underscore-dangle": "off",
+        "max-len": "off",
+        "no-bitwise": "off",
+        "no-param-reassign": ["warn", { "props": false }],
+        "padded-blocks": "off",
+        "no-use-before-define": "warn",
+        "no-unused-vars": "warn",
+        "react/require-extension": "off",
+        "import/no-extraneous-dependencies": ["error", {"devDependencies": ["**/*.spec.js"]}],
+        "no-plusplus": ["error", { "allowForLoopAfterthoughts": true }],
+        "prefer-template": "off",
+        "consistent-return": "off",
+        "no-console": "off"
+    }
+}

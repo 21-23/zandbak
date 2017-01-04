@@ -3,13 +3,14 @@
  *
  * createWorker     initWorker                                  loadWorker                                 initWorker
  *     |                |                did-finish-load            |               worker::solved              |                did-finish-load
- *     | epmty ---------|------> empty --------|---------> ready ---|------> busy --------|--------> dirty -----|------> empty --------|----------> ready --- - - -
+ *     | empty ---------|----> loading --------|---------> ready ---|------> busy --------|--------> dirty -----|-----> loading --------|----------> ready --- - - -
  */
 
 const { app, BrowserWindow } = require('electron');
 
 const INTERNAL_WORKER_STATE = {
     empty: 'empty',
+    loading: 'loading',
     ready: 'ready',
     busy: 'busy',
     dirty: 'dirty',
@@ -63,7 +64,7 @@ function initWorker({ workerId, sand }) {
     const win = BrowserWindow.fromId(workerId);
     const webContents = win.webContents;
 
-    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.empty);
+    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.loading);
 
     webContents.loadURL(sand.url, sand.urlOptions);
 }

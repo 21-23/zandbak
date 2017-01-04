@@ -18,3 +18,20 @@ exports.createJob = function (jobId, task, state) {
         state,
     };
 };
+
+exports.WORKER_STATE = {
+    preparing: 'preparing',
+    ready: 'ready',
+    inProgress: 'inProgress',
+};
+
+exports.createWorkerInstance = function (workerId, state) {
+    return {
+        workerId,
+        state,
+    };
+};
+
+exports.UNRESPONSIVE_WORKER_ERROR = {
+    error: 'unresponsive worker'
+};

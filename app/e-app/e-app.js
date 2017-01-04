@@ -48,11 +48,11 @@ function createWorker() {
     webContents.on('did-finish-load', () => {
         sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.ready);
     });
-    webContents.on('worker::solved', (message) => {
+    webContents.on('worker::solved', (result) => {
         sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
         process.send({
             type: 'e-app::taskSolved',
-            payload: message.payload
+            payload: { workerId, result }
         });
     });
 

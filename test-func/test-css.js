@@ -9,15 +9,15 @@
     var ipcRenderer = require('electron').ipcRenderer;
 
     function send(result) {
-        return ipcRenderer.send('worker::solved', { type: 'worker::result', payload: result });
+        return ipcRenderer.send('worker::solved', result);
     }
 
     function exec(task, done) {
         try {
             var result = document.querySelectorAll(task.payload.selector);
-            done({ result: result, task: task });
+            done({ result: result});
         } catch (e) {
-            done({ error: e, task: task });
+            done({ error: e });
         }
     }
 

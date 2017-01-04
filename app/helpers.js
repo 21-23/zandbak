@@ -18,13 +18,3 @@ exports.createJob = function (jobId, task, state) {
         state,
     };
 };
-
-exports.createJobResult = function (task, payload, resolution) {
-    return {
-        task,
-        result: {
-            payload,
-            resolution,
-        }
-    };
-};

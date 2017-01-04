@@ -16,7 +16,7 @@
         "no-unused-vars": "warn",
         "react/require-extension": "off",
         "import/no-extraneous-dependencies": ["error", {"devDependencies": ["**/*.spec.js"]}],
-        "no-plusplus": ["error", { "allowForLoopAfterthoughts": true }],
+        "no-plusplus": "off",
         "prefer-template": "off",
         "consistent-return": "off",
         "no-console": "off"

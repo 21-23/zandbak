@@ -2,6 +2,7 @@ const path = require('path');
 const proc = require('child_process');
 const EventEmitter = require('events');
 
+const _uniqueid = require('lodash.uniqueid');
 const electron = require('electron');
 
 const { JOB_STATE, JOB_RESOLUTION, createJob, createJobResult } = require('./helpers');
@@ -11,7 +12,6 @@ const emptySand = {
 	url: 'about:blank',
 	urlOptions: {}
 };
-let jobIdGenerator = 0;
 
 // ------------------ e-app management --------------------
 
@@ -29,63 +29,20 @@ function createEAppProc(options) {
 
 function destroyEAppProc(eApp) {
 	eApp.removeAllListeners('message');
+
+	// potentially, we can rely on 'e-app::destroy' but who knows...
 	eApp.kill('SIGINT');
 }
 
 // ------------------ workers management ------------------
 
-function createInitialWorkers(eApp, workersCount) {
-	while(--workersCount >= 0) {
-		eApp.send({
-			type: 'e-app::createWorker'
-		});
-	}
-}
-
-function workerCreated(worker, workers) {
-	workers.set(worker.workerId, worker);
-}
-
-function initWorker({ workerId }, sand, eApp) {
-	eApp.send({
-		type: 'e-app::initWorker',
-		payload: { workerId, sand }
-	});
-}
-
-function workerStateChange({ workerId, state }, workers) {
-	workers.get(workerId).state = state;
-}
-
-function resetWorkers(workers, sand, eApp) {
-	workers.forEach((worker) => {
-		initWorker(worker, sand, eApp);
-		// TODO: clear worker state from here???
-	});
-}
 
 // ------------------ jobs management ---------------------
-
-function jobCreated(job, jobs) {
-	jobs.set(job.jobId, job);
-}
-
-function resetJobs(jobs, emitter) {
-	for (const jobId of jobs.keys()) {
-		const { task } = jobs.get(jobId);
-		const jobResult = createJobResult(task, null, JOB_RESOLUTION.timeout);
-
-		emitter.emit('solved', jobResult);
-		jobs.delete(jobId);
-	}
-}
 
 module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
 	const emitter = new EventEmitter();
 	let eApp = createEAppProc(eAppOptions);
 
-	const workers = new Map();
-	const jobs = new Map();
 	let sand = null;
 
 	eApp.on('message', ({ type, payload }) => {
@@ -93,11 +50,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
 
 		switch (type) {
 			case 'e-app::ready':
-				return createInitialWorkers(eApp, zandbakOptions.workersCount);
-			case 'e-app::workerCreated':
-				return workerCreated(payload, workers, eApp, sand);
-			case 'e-app::workerStateChange':
-				return workerStateChange(payload, workers);
+				return;
 			default:
 				return console.log('Unknown message from e-app');
 		}
@@ -112,20 +65,14 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
 		resetWith: (newSand, callback) => {
 			sand = newSand || emptySand;
 
-			resetJobs(jobs, emitter);
-			resetWorkers(workers, sand, eApp);
-
-			// TODO: how to wait for the callback
 			callback(instance);
 		},
 		exec: (task) => {
-			const job = createJob(++jobIdGenerator, task, JOB_STATE.ready);
-
-			jobCreated(job, jobs)
+			const job = createJob(_uniqueid('jobId'), task, JOB_STATE.ready);
 		},
 		destroy: () => {
 			instance.off();
-			destroyEAppProc(eApp);
+			eApp && destroyEAppProc(eApp);
 			eApp = null;
 		},
 		on: (eventName, listener) => {

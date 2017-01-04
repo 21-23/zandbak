@@ -4,9 +4,9 @@
   "description": "JS/HTML sandbox",
   "main": "app/zandbak.js",
   "scripts": {
-  	"start": "",
-  	"test:unit": "",
-  	"test:func": "node ./test-func/test-css.js"
+    "start": "",
+    "test:unit": "",
+    "test:func": "node ./test-func/test-css.js"
   },
   "repository": {
     "url": "git@github.com:kirilknysh/zandbak.git",
@@ -15,6 +15,7 @@
   "author": "Kiril Knysh <k.knysh@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "electron": "^1.4.13"
+    "electron": "^1.4.13",
+    "lodash.uniqueid": "^4.0.1"
   }
 }

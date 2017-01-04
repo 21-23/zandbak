@@ -6,7 +6,7 @@
  *     | empty ---------|----> loading --------|---------> ready ---|------> busy --------|--------> dirty -----|-----> loading --------|----------> ready --- - - -
  */
 
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 
 const INTERNAL_WORKER_STATE = {
     empty: 'empty',
@@ -49,13 +49,6 @@ function createWorker() {
     webContents.on('did-finish-load', () => {
         sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.ready);
     });
-    webContents.on('worker::solved', (result) => {
-        sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
-        process.send({
-            type: 'e-app::taskSolved',
-            payload: { workerId, result }
-        });
-    });
 
     return win;
 }
@@ -79,7 +72,7 @@ function loadWorker({ workerId, task }) {
 }
 
 process.on('message', ({ type, payload }) => {
-    console.log('e-app::onHostMessage type:', type, '; payload', payload);
+    console.log('e-app::onHostMessage type:', type);
 
     switch (type) {
         case 'e-app::createWorker':
@@ -93,6 +86,17 @@ process.on('message', ({ type, payload }) => {
         default:
             console.log('unknown message');
     }
+});
+
+ipcMain.on('worker::solved', (event, result) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const workerId = win.id;
+
+    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
+    process.send({
+        type: 'e-app::taskSolved',
+        payload: { workerId, result }
+    });
 });
 
 app.on('ready', () => {

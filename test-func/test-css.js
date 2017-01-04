@@ -43,7 +43,7 @@
 const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
-    zandbakOptions: { workersCount: 2, maxWorkersCount: 5, taskTimeoutMs: 500, reloadWorkers: true },
+    zandbakOptions: { workersCount: 5, maxWorkersCount: 10, taskTimeoutMs: 500, reloadWorkers: false },
     eAppOptions: { showDevTools: true, browserWindow: { width: 400, height: 400, show: true } }
 });
 
@@ -67,8 +67,7 @@ const rounds = [
                     }
                 }
 
-                ipcRenderer.on('e-app::exec', function(message) {
-                    console.log(message);
+                ipcRenderer.on('e-app::exec', function(source, message) {
                     if (!message) {
                         console.log('worker::onMessage', 'empty message, do nothing');
                         return send({ message: message, error: 'empty message' });
@@ -100,19 +99,20 @@ sandbox.on('solved', onTaskSolved);
 
 
 sandbox.resetWith(rounds[0]);
-sandbox.exec({ taskId: 0, payload: { selector: 'h1' } });
-sandbox.exec({ taskId: 1, payload: { selector: '.span' } });
+let taskIterator = 50;
+while (--taskIterator > 0) {
+    sandbox.exec({ taskId: taskIterator, payload: { selector: `h${taskIterator}` } });
+}
+// force to create additional workers
+setTimeout(() => {
+    let taskIterator = 50;
+    while (--taskIterator > 0) {
+        sandbox.exec({ taskId: taskIterator, payload: { selector: `span${taskIterator}` } });
+    }
+}, 1000);
 
-// setTimeout(() => {
-//     sandbox.resetWith(null, () => { // STOP button
-//         sandbox.resetWith(rounds[1], () => { // start next round init to be ready
-//             sandbox.exec({});
-//             sandbox.exec({});
-//         });
-//     });
-// }, 5000);
 
-// setTimeout(() => {
-//     sandbox.off('solved', onTaskSolved);
-//     sandbox.destroy();
-// }, 10000);
+setTimeout(() => {
+    sandbox.off('solved', onTaskSolved);
+    sandbox.destroy();
+}, 10000);

@@ -10,13 +10,6 @@ exports.JOB_RESOLUTION = {
 	timeout: 'timeout',
 };
 
-exports.WORKER_STATE = {
-	empty: 'empty',
-	ready: 'ready',
-	busy: 'busy',
-	dirty: 'dirty',
-};
-
 exports.createJob = function (jobId, task, state) {
 	return {
 		jobId,

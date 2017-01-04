@@ -9,15 +9,15 @@
 	var ipcRenderer = require('electron').ipcRenderer;
 
 	function send(result) {
-		return ipcRenderer.send('worker::solved', result);
+		return ipcRenderer.send('worker::solved', { type: 'worker::result', payload: result });
 	}
 
-	function exec(message, done) {
+	function exec(task, done) {
 		try {
-			var result = document.querySelectorAll(message.payload.selector);
-			done({ message: message, result: result });
+			var result = document.querySelectorAll(task.payload.selector);
+			done({ result: result, task: task });
 		} catch (e) {
-			done({ message: message, error: e });
+			done({ error: e, task: task });
 		}
 	}
 
@@ -32,7 +32,7 @@
 			return send({ message: message, error: 'unknown message type' });
 		}
 
-		exec(message, send);
+		exec(message.payload, send);
 	});
 </script>
 </body>
@@ -51,7 +51,7 @@ const rounds = [
 	{
 		url: `data:text/html,<!DOCTYPE html><html><body>
 			<div class='parent'><span>child 0</span><h1>child 1</h1></div>
-			<script>var ipcRenderer = require('electron').ipcRenderer;function send(result) {return ipcRenderer.send('worker::solved', result);}function exec(message, done) {try {var result = document.querySelectorAll(message.payload.selector);done({ message: message, result: result });} catch (e) {done({ message: message, error: e });}}ipcRenderer.on('e-app::exec', function(message) {if (!message) {console.log('worker::onMessage', 'empty message, do nothing');return send({ message: message, error: 'empty message' });}if (message.type !== 'worker::exec') {console.log('worker::onMessage', 'unknown message type', message.type);return send({ message: message, error: 'unknown message type' });}exec(message, send);});</script></body></html>`,
+			<script>var ipcRenderer = require('electron').ipcRenderer;function send(result) {return ipcRenderer.send('worker::solved', { type: 'worker::result', payload: result });}function exec(task, done) {try {var result = document.querySelectorAll(task.payload.selector);done({ result: result, task: task });} catch (e) {done({ error: e, task: task });}}ipcRenderer.on('e-app::exec', function(message) {if (!message) {console.log('worker::onMessage', 'empty message, do nothing');return send({ message: message, error: 'empty message' });}if (message.type !== 'worker::exec') {console.log('worker::onMessage', 'unknown message type', message.type);return send({ message: message, error: 'unknown message type' });}exec(message.payload, send);});</script></body></html>`,
 		urlOptions: { userAgent: 'cssqd-ua' }
 	},
 	{
@@ -68,8 +68,8 @@ sandbox.on('solved', onTaskSolved);
 
 
 sandbox.resetWith(rounds[0], (sandbox) => {
-	sandbox.exec({ taskId: 0, payload: 'h1' });
-	sandbox.exec({ taskId: 1, payload: '.span' });
+	sandbox.exec({ taskId: 0, payload: { selector: 'h1' } });
+	sandbox.exec({ taskId: 1, payload: { selector: '.span' } });
 });
 
 setTimeout(() => {

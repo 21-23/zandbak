@@ -72,7 +72,7 @@ function loadWorker({ workerId, task }) {
 }
 
 process.on('message', ({ type, payload }) => {
-    console.log('e-app::onHostMessage type:', type);
+    console.log('[e-app]', 'onHostMessage type:', type);
 
     switch (type) {
         case 'e-app::createWorker':
@@ -84,7 +84,7 @@ process.on('message', ({ type, payload }) => {
         case 'e-app::destroy':
             return destroy();
         default:
-            console.log('unknown message');
+            console.warn('[e-app]', 'unknown message');
     }
 });
 

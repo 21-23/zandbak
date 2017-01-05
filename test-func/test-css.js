@@ -67,7 +67,7 @@ const rounds = [
                     }
                 }
 
-                ipcRenderer.on('e-app::exec', function(source, message) {
+                ipcRenderer.on('e-app::exec', function(event, message) {
                     if (!message) {
                         console.log('worker::onMessage', 'empty message, do nothing');
                         return send({ message: message, error: 'empty message' });
@@ -100,7 +100,7 @@ let avgTimingNanoSec = 0;
 function onTaskSolved(task, result) {
     const diff = process.hrtime(timing[task.taskId]);
 
-    console.log('Task solved', task, '; result:', result, 'time:', diff);
+    console.log('[test-css]', 'Task solved', task, '; result:', result, 'time:', diff);
 
     avgTimingNanoSec += ((diff[0] * 1000000000) + diff[1]);
 }
@@ -123,7 +123,7 @@ while (--taskIterator >= 0) {
 
 
 setTimeout(() => {
-    console.log('Avg task time: ', ((avgTimingNanoSec / tasksCount) / 1000000000), 'sec');
+    console.log('[test-css]', 'Avg task time: ', ((avgTimingNanoSec / tasksCount) / 1000000000), 'sec');
 
     sandbox.off('solved', onTaskSolved);
     sandbox.destroy();

@@ -16,6 +16,7 @@ exports.createJob = function (jobId, task, state) {
         workerId: null,
         task,
         state,
+        timerId: null
     };
 };
 
@@ -38,4 +39,8 @@ exports.UNRESPONSIVE_WORKER_ERROR = {
 
 exports.JOB_INT_ERROR = {
     error: 'job was interrupted'
+};
+
+exports.JOB_TIMEOUT_ERROR = {
+    error: 'job was timeouted'
 };

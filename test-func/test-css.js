@@ -43,8 +43,8 @@
 const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
-    zandbakOptions: { workersCount: 5, maxWorkersCount: 10, taskTimeoutMs: 500 },
-    eAppOptions: { showDevTools: true, browserWindow: { width: 400, height: 400, show: true } }
+    zandbakOptions: { workersCount: 2, maxWorkersCount: 5 },
+    eAppOptions: { showDevTools: false, browserWindow: { width: 400, height: 400, show: false } }
 });
 
 const rounds = [
@@ -84,12 +84,14 @@ const rounds = [
             </body>
             </html>`,
         urlOptions: { userAgent: 'cssqd-ua' },
-        reloadWorkers: true
+        reloadWorkers: false,
+        taskTimeoutMs: 500
     },
     {
         url: 'http://www.brainjar.com/java/host/test.html',
         urlOptions: { userAgent: 'cssqd-ua' },
-        reloadWorkers: false
+        reloadWorkers: false,
+        taskTimeoutMs: 500
     }
 ];
 
@@ -113,7 +115,7 @@ sandbox.resetWith(rounds[0]);
 const tasksCount = 100;
 let taskIterator = tasksCount;
 while (--taskIterator >= 0) {
-    const timeout = Math.floor(Math.random() * 10);
+    const timeout = Math.floor(Math.random() * 50);
     // eslint-disable-next-line
     setTimeout(((taskId) => (() => {
         timing[taskId] = process.hrtime();
@@ -123,8 +125,9 @@ while (--taskIterator >= 0) {
 
 
 setTimeout(() => {
+    console.log('[test-css]', 'Sum task time: ', avgTimingNanoSec / 1000000000, 'sec');
     console.log('[test-css]', 'Avg task time: ', ((avgTimingNanoSec / tasksCount) / 1000000000), 'sec');
 
     sandbox.off('solved', onTaskSolved);
     sandbox.destroy();
-}, 15000);
+}, 20000);

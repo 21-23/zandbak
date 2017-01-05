@@ -8,6 +8,8 @@
 
 const { app, BrowserWindow, ipcMain } = require('electron');
 
+const { log, warn } = require('./e-app-logger');
+
 const INTERNAL_WORKER_STATE = {
     empty: 'empty',
     loading: 'loading',
@@ -72,7 +74,7 @@ function loadWorker({ workerId, task }) {
 }
 
 process.on('message', ({ type, payload }) => {
-    console.log('[e-app]', 'onHostMessage type:', type);
+    log('[e-app]', 'onHostMessage type:', type);
 
     switch (type) {
         case 'e-app::createWorker':
@@ -84,7 +86,7 @@ process.on('message', ({ type, payload }) => {
         case 'e-app::destroy':
             return destroy();
         default:
-            console.warn('[e-app]', 'unknown message');
+            warn('[e-app]', 'unknown message');
     }
 });
 

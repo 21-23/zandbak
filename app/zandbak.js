@@ -5,7 +5,8 @@ const EventEmitter = require('events');
 const _uniqueid = require('lodash.uniqueid');
 const electron = require('electron');
 
-const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, JOB_INT_ERROR, createJob, createWorkerInstance } = require('./helpers');
+const { log, warn, error } = require('./logger');
+const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance } = require('./helpers');
 
 const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 const emptySand = {
@@ -75,7 +76,7 @@ function initWorker(workers, workerId, sand, eApp) {
     const worker = getWorkerById(workers, workerId);
 
     if (!worker) {
-        return console.warn('[zandback]', 'can not find worker to init', workerId);
+        return warn('[zandback]', 'can not find worker to init', workerId);
     }
 
     worker.state = WORKER_STATE.preparing;
@@ -90,7 +91,7 @@ function onWorkerEmpty(workers, workerId, sand, eApp) {
     const worker = getWorkerPlaceholder(workers);
 
     if (!worker) {
-        return console.warn('[zandback]', 'can not find worker placeholders');
+        return warn('[zandback]', 'can not find worker placeholders');
     }
 
     worker.workerId = workerId;
@@ -98,25 +99,25 @@ function onWorkerEmpty(workers, workerId, sand, eApp) {
     initWorker(workers, workerId, sand, eApp);
 }
 
-function onWorkerReady(workers, workerId, jobs, zandbakOptions, eApp) {
+function onWorkerReady(workers, workerId, jobs, zandbakOptions, sand, emitter, eApp) {
     // TODO: if this ready is from another sand?
     const worker = getWorkerById(workers, workerId);
 
     if (!worker) {
-        return console.log('[zandback]', 'unknown worker is ready;');
+        return log('[zandback]', 'unknown worker is ready;');
     }
 
     worker.state = WORKER_STATE.ready;
 
-    tryExecJob(jobs, workers, zandbakOptions, true, eApp);
+    tryExecJob(jobs, workers, zandbakOptions, true, sand, emitter, eApp);
 }
 
-function onWorkerDirty(workers, workerId, jobs, zandbakOptions, sand, eApp) {
+function onWorkerDirty(workers, workerId, jobs, zandbakOptions, sand, emitter, eApp) {
     if (sand.reloadWorkers) {
         return initWorker(workers, workerId, sand, eApp);
     }
 
-    onWorkerReady(workers, workerId, jobs, zandbakOptions, eApp);
+    onWorkerReady(workers, workerId, jobs, zandbakOptions, sand, emitter, eApp);
 }
 
 function onWorkerUnresponsive(workers, workerId, jobs, emitter, sand, eApp) {
@@ -136,7 +137,7 @@ function reinitWorkers(workers, sand, eApp) {
 }
 
 function onWorkerStateChange({ workerId, state }, workers, jobs, sand, zandbakOptions, emitter, eApp) {
-    console.log('[zandback]', 'workerStateChange; workerId:', workerId, '; state:', state);
+    log('[zandback]', 'workerStateChange; workerId:', workerId, '; state:', state);
 
     switch (state) {
         case 'empty':
@@ -144,15 +145,15 @@ function onWorkerStateChange({ workerId, state }, workers, jobs, sand, zandbakOp
         case 'loading':
             return;
         case 'ready':
-            return onWorkerReady(workers, workerId, jobs, zandbakOptions, eApp);
+            return onWorkerReady(workers, workerId, jobs, zandbakOptions, sand, emitter, eApp);
         case 'busy':
             return;
         case 'dirty':
-            return onWorkerDirty(workers, workerId, jobs, zandbakOptions, sand, eApp);
+            return onWorkerDirty(workers, workerId, jobs, zandbakOptions, sand, emitter, eApp);
         case 'unresponsive':
             return onWorkerUnresponsive(workers, workerId, jobs, emitter, sand, eApp);
         default:
-            return console.warn('[zandback]', 'unknown worker state; workerId', workerId, '; state', state);
+            return warn('[zandback]', 'unknown worker state; workerId', workerId, '; state', state);
     }
 }
 
@@ -183,7 +184,7 @@ function removeJob(jobs, job) {
     });
 
     if (jobIndex < 0) {
-        return console.warn('[zandback]', 'trying to remove unknown job', job);
+        return warn('[zandback]', 'trying to remove unknown job', job);
     }
 
     jobs.splice(jobIndex, 1);
@@ -193,10 +194,16 @@ function addJob(jobs, job) {
     jobs.push(job);
 }
 
-function execJob(job, worker, eApp) {
+function execJob(jobs, job, workers, worker, sand, emitter, eApp) {
     job.workerId = worker.workerId;
     job.state = JOB_STATE.inProgress;
     worker.state = WORKER_STATE.inProgress;
+
+    if (sand.taskTimeoutMs) {
+        job.timerId = setTimeout(() => {
+            timeoutJob(jobs, job, workers, emitter, sand, eApp);
+        }, sand.taskTimeoutMs);
+    }
 
     eApp.send({
         type: 'e-app::loadWorker',
@@ -204,40 +211,41 @@ function execJob(job, worker, eApp) {
     });
 }
 
-function tryExecJob(jobs, workers, zandbakOptions, isEAppReady = true, eApp) {
+function tryExecJob(jobs, workers, zandbakOptions, isEAppReady = true, sand, emitter, eApp) {
     if (!isEAppReady) {
-        return console.log('[zandback]', 'eApp is not ready yet');
+        return log('[zandback]', 'eApp is not ready yet');
     }
 
     const job = getReadyJob(jobs);
 
     if (!job) {
-        return console.log('[zandback]', 'no ready jobs');
+        return log('[zandback]', 'no ready jobs');
     }
 
     const worker = getReadyWorker(workers, zandbakOptions.maxWorkersCount, eApp);
 
     if (!worker) {
-        console.log('[zandback]', 'no ready workers');
+        log('[zandback]', 'no ready workers');
 
         if (getWorkersCount(workers) < zandbakOptions.maxWorkersCount) {
-            console.log('[zandback]', 'create additional worker');
+            log('[zandback]', 'create additional worker');
             createWorkers(workers, eApp);
         }
 
         return null;
     }
 
-    execJob(job, worker, eApp);
+    execJob(jobs, job, workers, worker, sand, emitter, eApp);
 }
 
 function onSolved({ workerId, result }, jobs, emitter) {
     const job = getJobByWorkerId(jobs, workerId);
 
     if (!job) {
-        return console.warn('[zandback]', 'task solved for unknown job', result);
+        return warn('[zandback]', 'task solved for unknown job', result);
     }
 
+    clearTimeout(job.timerId);
     emitter.emit('solved', job.task, result);
     removeJob(jobs, job);
 }
@@ -246,9 +254,15 @@ function interruptJobs(jobs, emitter) {
     while (jobs.length > 0) {
         const job = jobs[0];
 
-        emitter.emit('solved', job.task, JOB_INT_ERROR);
-        removeJob(jobs, job);
+        onSolved({ workerId: job.workerId, result: JOB_INT_ERROR }, jobs, emitter);
     }
+}
+
+function timeoutJob(jobs, job, workers, emitter, sand, eApp) {
+    warn('[zandback]', 'job timeout; job:', job);
+
+    onSolved({ workerId: job.workerId, result: JOB_TIMEOUT_ERROR }, jobs, emitter);
+    initWorker(workers, job.workerId, sand, eApp);
 }
 
 
@@ -262,7 +276,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
     const workers = [];
 
     eApp.on('message', ({ type, payload }) => {
-        console.log('[zandback]', 'eAppMessage type:', type, '; payload:', payload);
+        log('[zandback]', 'eAppMessage type:', type, '; payload:', payload);
 
         switch (type) {
             case 'e-app::ready':
@@ -273,12 +287,12 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
             case 'e-app::taskSolved':
                 return onSolved(payload, jobs, emitter);
             default:
-                return console.warn('[zandback]', 'Unknown message from e-app');
+                return warn('[zandback]', 'Unknown message from e-app');
         }
     });
 
     process.on('uncaughtException', (e) => {
-        console.error('[zandback]', 'uncaughtException:', e);
+        error('[zandback]', 'uncaughtException:', e);
         instance.destroy();
     });
 
@@ -294,7 +308,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
 
             addJob(jobs, job);
 
-            tryExecJob(jobs, workers, zandbakOptions, isEAppReady, eApp);
+            tryExecJob(jobs, workers, zandbakOptions, isEAppReady, sand, emitter, eApp);
         },
         destroy: () => {
             instance.off();

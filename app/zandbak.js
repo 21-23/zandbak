@@ -10,7 +10,8 @@ const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, JOB_INT_ERROR, creat
 const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 const emptySand = {
     url: 'about:blank',
-    urlOptions: {}
+    urlOptions: {},
+    reloadWorkers: true
 };
 
 // ------------------ e-app management --------------------
@@ -74,7 +75,7 @@ function initWorker(workers, workerId, sand, eApp) {
     const worker = getWorkerById(workers, workerId);
 
     if (!worker) {
-        console.log('can not find worker to init', workerId);
+        return console.warn('[zandback]', 'can not find worker to init', workerId);
     }
 
     worker.state = WORKER_STATE.preparing;
@@ -89,7 +90,7 @@ function onWorkerEmpty(workers, workerId, sand, eApp) {
     const worker = getWorkerPlaceholder(workers);
 
     if (!worker) {
-        return console.warn('can not find worker placeholders');
+        return console.warn('[zandback]', 'can not find worker placeholders');
     }
 
     worker.workerId = workerId;
@@ -102,16 +103,16 @@ function onWorkerReady(workers, workerId, jobs, zandbakOptions, eApp) {
     const worker = getWorkerById(workers, workerId);
 
     if (!worker) {
-        return console.log('unknown worker is ready;');
+        return console.log('[zandback]', 'unknown worker is ready;');
     }
 
     worker.state = WORKER_STATE.ready;
 
-    tryExecJob(jobs, workers, zandbakOptions, eApp);
+    tryExecJob(jobs, workers, zandbakOptions, true, eApp);
 }
 
 function onWorkerDirty(workers, workerId, jobs, zandbakOptions, sand, eApp) {
-    if (zandbakOptions.reloadWorkers) {
+    if (sand.reloadWorkers) {
         return initWorker(workers, workerId, sand, eApp);
     }
 
@@ -120,7 +121,7 @@ function onWorkerDirty(workers, workerId, jobs, zandbakOptions, sand, eApp) {
 
 function onWorkerUnresponsive(workers, workerId, jobs, emitter, sand, eApp) {
     // force task solving with error
-    onSolved({ workerId, UNRESPONSIVE_WORKER_ERROR }, jobs, emitter);
+    onSolved({ workerId, result: UNRESPONSIVE_WORKER_ERROR }, jobs, emitter);
 
     // force worker reload
     initWorker(workers, workerId, sand, eApp);
@@ -135,23 +136,23 @@ function reinitWorkers(workers, sand, eApp) {
 }
 
 function onWorkerStateChange({ workerId, state }, workers, jobs, sand, zandbakOptions, emitter, eApp) {
-    console.log('WorkerStateChange; workerId:', workerId, '; state:', state);
+    console.log('[zandback]', 'workerStateChange; workerId:', workerId, '; state:', state);
 
     switch (state) {
         case 'empty':
             return onWorkerEmpty(workers, workerId, sand, eApp);
         case 'loading':
-            return console.log('worker', workerId, 'is loading');
+            return;
         case 'ready':
             return onWorkerReady(workers, workerId, jobs, zandbakOptions, eApp);
         case 'busy':
-            return console.log('worker', workerId, 'is busy');
+            return;
         case 'dirty':
             return onWorkerDirty(workers, workerId, jobs, zandbakOptions, sand, eApp);
         case 'unresponsive':
             return onWorkerUnresponsive(workers, workerId, jobs, emitter, sand, eApp);
         default:
-            return console.log('unknown worker state; workerId', workerId, '; state', state);
+            return console.warn('[zandback]', 'unknown worker state; workerId', workerId, '; state', state);
     }
 }
 
@@ -182,7 +183,7 @@ function removeJob(jobs, job) {
     });
 
     if (jobIndex < 0) {
-        return console.warn('trying to remove unknown job', job);
+        return console.warn('[zandback]', 'trying to remove unknown job', job);
     }
 
     jobs.splice(jobIndex, 1);
@@ -203,23 +204,27 @@ function execJob(job, worker, eApp) {
     });
 }
 
-function tryExecJob(jobs, workers, zandbakOptions, eApp) {
+function tryExecJob(jobs, workers, zandbakOptions, isEAppReady = true, eApp) {
+    if (!isEAppReady) {
+        return console.log('[zandback]', 'eApp is not ready yet');
+    }
+
     const job = getReadyJob(jobs);
 
     if (!job) {
-        console.log('no ready jobs');
-        return null;
+        return console.log('[zandback]', 'no ready jobs');
     }
 
     const worker = getReadyWorker(workers, zandbakOptions.maxWorkersCount, eApp);
 
     if (!worker) {
-        console.log('no ready workers');
+        console.log('[zandback]', 'no ready workers');
 
         if (getWorkersCount(workers) < zandbakOptions.maxWorkersCount) {
-            console.log('create additional worker');
+            console.log('[zandback]', 'create additional worker');
             createWorkers(workers, eApp);
         }
+
         return null;
     }
 
@@ -230,7 +235,7 @@ function onSolved({ workerId, result }, jobs, emitter) {
     const job = getJobByWorkerId(jobs, workerId);
 
     if (!job) {
-        return console.warn('task solved for unknown job', result);
+        return console.warn('[zandback]', 'task solved for unknown job', result);
     }
 
     emitter.emit('solved', job.task, result);
@@ -257,7 +262,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
     const workers = [];
 
     eApp.on('message', ({ type, payload }) => {
-        console.log('zandbak::onEAppMessage type:', type, '; payload:', payload);
+        console.log('[zandback]', 'eAppMessage type:', type, '; payload:', payload);
 
         switch (type) {
             case 'e-app::ready':
@@ -268,12 +273,12 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
             case 'e-app::taskSolved':
                 return onSolved(payload, jobs, emitter);
             default:
-                return console.log('Unknown message from e-app');
+                return console.warn('[zandback]', 'Unknown message from e-app');
         }
     });
 
     process.on('uncaughtException', (e) => {
-        console.log('uncaughtException:', e);
+        console.error('[zandback]', 'uncaughtException:', e);
         instance.destroy();
     });
 
@@ -289,9 +294,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
 
             addJob(jobs, job);
 
-            if (isEAppReady) {
-                tryExecJob(jobs, workers, zandbakOptions, eApp);
-            }
+            tryExecJob(jobs, workers, zandbakOptions, isEAppReady, eApp);
         },
         destroy: () => {
             instance.off();

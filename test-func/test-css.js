@@ -43,7 +43,7 @@
 const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
-    zandbakOptions: { workersCount: 5, maxWorkersCount: 10, taskTimeoutMs: 500, reloadWorkers: false },
+    zandbakOptions: { workersCount: 5, maxWorkersCount: 10, taskTimeoutMs: 500 },
     eAppOptions: { showDevTools: true, browserWindow: { width: 400, height: 400, show: true } }
 });
 
@@ -83,36 +83,48 @@ const rounds = [
             </script>
             </body>
             </html>`,
-        urlOptions: { userAgent: 'cssqd-ua' }
+        urlOptions: { userAgent: 'cssqd-ua' },
+        reloadWorkers: true
     },
     {
         url: 'http://www.brainjar.com/java/host/test.html',
-        urlOptions: { userAgent: 'cssqd-ua' }
+        urlOptions: { userAgent: 'cssqd-ua' },
+        reloadWorkers: false
     }
 ];
 
+
+const timing = {};
+let avgTimingNanoSec = 0;
+
 function onTaskSolved(task, result) {
-    console.log('Task solved', task, '; result:', result);
+    const diff = process.hrtime(timing[task.taskId]);
+
+    console.log('Task solved', task, '; result:', result, 'time:', diff);
+
+    avgTimingNanoSec += ((diff[0] * 1000000000) + diff[1]);
 }
 
 sandbox.on('solved', onTaskSolved);
 
 
 sandbox.resetWith(rounds[0]);
-let taskIterator = 50;
-while (--taskIterator > 0) {
-    sandbox.exec({ taskId: taskIterator, payload: { selector: `h${taskIterator}` } });
+
+const tasksCount = 100;
+let taskIterator = tasksCount;
+while (--taskIterator >= 0) {
+    const timeout = Math.floor(Math.random() * 10);
+    // eslint-disable-next-line
+    setTimeout(((taskId) => (() => {
+        timing[taskId] = process.hrtime();
+        sandbox.exec({ taskId, payload: { selector: `h${taskIterator}` } });
+    }))(taskIterator), (timeout * 1000));
 }
-// force to create additional workers
-setTimeout(() => {
-    let taskIterator = 50;
-    while (--taskIterator > 0) {
-        sandbox.exec({ taskId: taskIterator, payload: { selector: `span${taskIterator}` } });
-    }
-}, 1000);
 
 
 setTimeout(() => {
+    console.log('Avg task time: ', ((avgTimingNanoSec / tasksCount) / 1000000000), 'sec');
+
     sandbox.off('solved', onTaskSolved);
     sandbox.destroy();
-}, 10000);
+}, 15000);

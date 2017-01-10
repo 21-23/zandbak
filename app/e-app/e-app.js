@@ -1,10 +1,12 @@
 /*
  * Task lifecycle:
  *
- * createWorker     initWorker                                  loadWorker                                 initWorker
- *     |                |                did-finish-load            |               worker::solved              |                did-finish-load
- *     | empty ---------|----> loading --------|---------> ready ---|------> busy --------|--------> dirty -----|-----> loading --------|----------> ready --- - - -
+ * createWorker                                                            fillWorker                                      loadWorker                                 initWorker
+ *     |           loadSand              did-finish-load                       |                worker::filled                 |               worker::solved              |                did-finish-load
+ *     | empty ---------|----> loading --------|---------> readyForFiller------| -----> filling -------|--------> ready -------|------> busy --------|--------> dirty -----|-----> loading --------|----------> readyForFiller --- - - -
  */
+
+const path = require('path');
 
 const { app, BrowserWindow, ipcMain } = require('electron');
 
@@ -13,6 +15,8 @@ const { log, warn } = require('./e-app-logger');
 const INTERNAL_WORKER_STATE = {
     empty: 'empty',
     loading: 'loading',
+    readyForFiller: 'readyForFiller',
+    filling: 'filling',
     ready: 'ready',
     busy: 'busy',
     dirty: 'dirty',
@@ -27,10 +31,18 @@ function destroy() {
     process.exit(0);
 }
 
-function sendWorkerStateChange(workerId, state) {
+function buildSandUrl(sand) {
+    return path.join(__dirname, 'sand', `${sand}.html`);
+}
+
+function loadSand(webContents) {
+    return webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
+}
+
+function sendWorkerStateChange(workerId, state, data) {
     process.send({
         type: 'e-app::workerStateChange',
-        payload: { workerId, state }
+        payload: { workerId, state, data }
     });
 }
 
@@ -43,34 +55,41 @@ function createWorker() {
         webContents.openDevTools();
     }
 
-    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.empty);
-
     win.on('unresponsive', () => {
         sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.unresponsive);
     });
     webContents.on('did-finish-load', () => {
-        sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.ready);
+        sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.readyForFiller);
     });
+
+    loadSand(webContents);
 
     return win;
 }
 
-function initWorker({ workerId, sand }) {
+function initWorker({ workerId }) {
     const win = BrowserWindow.fromId(workerId);
     const webContents = win.webContents;
 
-    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.loading);
-
-    webContents.loadURL(sand.url, sand.urlOptions);
+    loadSand(webContents);
 }
 
-function loadWorker({ workerId, task }) {
+function fillWorker({ workerId, filler, fillerId }) {
     const win = BrowserWindow.fromId(workerId);
     const webContents = win.webContents;
 
-    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.busy);
+    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.filling);
 
-    webContents.send('e-app::exec', { type: 'worker::exec', payload: task });
+    webContents.send('e-app::fill', { type: 'worker::fill', payload: { filler, fillerId } });
+}
+
+function loadWorker(payload) {
+    const win = BrowserWindow.fromId(payload.workerId);
+    const webContents = win.webContents;
+
+    sendWorkerStateChange(payload.workerId, INTERNAL_WORKER_STATE.busy);
+
+    webContents.send('e-app::exec', { type: 'worker::exec', payload });
 }
 
 process.on('message', ({ type, payload }) => {
@@ -79,10 +98,12 @@ process.on('message', ({ type, payload }) => {
     switch (type) {
         case 'e-app::createWorker':
             return createWorker();
-        case 'e-app::initWorker':
-            return initWorker(payload);
+        case 'e-app::fillWorker':
+            return fillWorker(payload);
         case 'e-app::loadWorker':
             return loadWorker(payload);
+        case 'e-app::initWorker':
+            return initWorker(payload);
         case 'e-app::destroy':
             return destroy();
         default:
@@ -90,15 +111,42 @@ process.on('message', ({ type, payload }) => {
     }
 });
 
-ipcMain.on('worker::solved', (event, result) => {
+ipcMain.on('e-app::exec', (event, message) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     const workerId = win.id;
 
-    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
+    if (!message || message.error) {
+        warn('[e-app]', 'on worker fill error', message);
+    }
+
+    if (message.type !== 'worker::solved') {
+        warn('[e-app]', 'on worker fill error, unknown message type', message);
+    }
+
     process.send({
         type: 'e-app::taskSolved',
-        payload: { workerId, result }
+        payload: message.payload,
+        error: message.error,
     });
+
+    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
+});
+
+ipcMain.on('e-app::fill', (event, message) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const workerId = win.id;
+
+    if (!message || message.error) {
+        warn('[e-app]', 'on worker fill error', message);
+        return sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
+    }
+
+    if (message.type !== 'worker::filled') {
+        warn('[e-app]', 'on worker fill error, unknown message type', message);
+        return sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
+    }
+
+    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.ready, message.payload);
 });
 
 app.on('ready', () => {

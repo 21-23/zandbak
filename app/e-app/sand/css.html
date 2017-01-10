@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        var ipcRenderer = require('electron').ipcRenderer;
+
+        function send(channel, result) {
+            return ipcRenderer.send(channel, result);
+        }
+
+        function exec(messagePayload, done) {
+            try {
+                var result = document.querySelectorAll(messagePayload.input);
+                messagePayload.result = result;
+                done('e-app::exec', { type: 'worker::solved', payload: messagePayload });
+            } catch (e) {
+                done('e-app::exec', { type: 'worker::solved', payload: messagePayload, error: e });
+            }
+        }
+
+        function fill(message, done) {
+            document.body.innerHTML = message.payload.filler;
+
+            done('e-app::fill', { type: 'worker::filled', payload: message.payload });
+        }
+
+        ipcRenderer.on('e-app::exec', function (event, message) {
+            if (!message) {
+                return send('e-app::exec', { type: 'worker::solved', payload: message, error: 'empty message' });
+            }
+
+            if (message.type !== 'worker::exec') {
+                return send('e-app::exec', { type: 'worker::solved', payload: message, error: 'unknown message type' });
+            }
+
+            exec(message.payload, send);
+        });
+
+        ipcRenderer.on('e-app::fill', function (event, message) {
+            if (!message) {
+                return send('e-app::fill', { type: 'worker::filled', payload: message, error: 'empty message' });
+            }
+
+            if (message.type !== 'worker::fill') {
+                return send('e-app::fill', { type: 'worker::filled', payload: message, error: 'unknown message type' });
+            }
+
+            fill(message, send);
+        });
+    </script>
+</head>
+<body>
+</body>
+</html>

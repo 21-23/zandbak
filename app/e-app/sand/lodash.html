@@ -140,56 +140,58 @@
         },On.prototype.toJSON=On.prototype.valueOf=On.prototype.value=function(){return kr(this.__wrapped__,this.__actions__)},On.prototype.first=On.prototype.head,Ai&&(On.prototype[Ai]=tu),On}();typeof define=="function"&&typeof define.amd=="object"&&define.amd?(Zn._=it, define(function(){return it})):Vn?((Vn.exports=it)._=it,qn._=it):Zn._=it}).call(this);
     </script>
     <script>
-        var fillerProp = 'filler_' + Math.random();
-        var ipcRenderer = require('electron').ipcRenderer;
+        (function() {
+            var stub = {};
+            var content = [];
+            var ipcRenderer = require('electron').ipcRenderer;
 
-        function send(channel, result) {
-            return ipcRenderer.send(channel, result);
-        }
-
-        function exec(messagePayload, done) {
-            try {
-                var result = eval('_.chain(window["' + fillerProp + '"])' + messagePayload.input + '.value()');
-                messagePayload.result = result;
-                done('e-app::exec', { type: 'worker::solved', payload: messagePayload });
-            } catch (e) {
-                done('e-app::exec', { type: 'worker::solved', payload: messagePayload, error: e });
-            }
-        }
-
-        function fill(message, done) {
-            window[fillerProp] = [];
-
-            fillerProp = 'filler_' + Math.random();
-
-            window[fillerProp] = message.payload.filler;
-
-            done('e-app::fill', { type: 'worker::filled', payload: message.payload });
-        }
-
-        ipcRenderer.on('e-app::exec', function (event, message) {
-            if (!message) {
-                return send('e-app::exec', { type: 'worker::solved', payload: message, error: 'empty message' });
+            function send(channel, result) {
+                return ipcRenderer.send(channel, result);
             }
 
-            if (message.type !== 'worker::exec') {
-                return send('e-app::exec', { type: 'worker::solved', payload: message, error: 'unknown message type' });
+            function exec(messagePayload, done) {
+                try {
+                    var result = eval('(function(content, window, document, location, $) {return _.chain(content).' + messagePayload.task.input + '.value()})(content, stub, stub, stub, stub)');
+                    messagePayload.result = result;
+                    done('e-app::exec', { type: 'worker::solved', payload: messagePayload });
+                } catch (e) {
+                    done('e-app::exec', { type: 'worker::solved', payload: messagePayload, error: e });
+                }
             }
 
-            exec(message.payload, send);
-        });
+            function fill(payload, done) {
+                content = [];
 
-        ipcRenderer.on('e-app::fill', function (event, message) {
-            if (!message) {
-                return send('e-app::fill', { type: 'worker::filled', payload: message, error: 'empty message' });
+                content = payload.filler;
+                payload.filler = undefined;
+
+                done('e-app::fill', { type: 'worker::filled', payload: payload });
             }
 
-            if (message.type !== 'worker::fill') {
-                return send('e-app::fill', { type: 'worker::filled', payload: message, error: 'unknown message type' });
-            }
+            ipcRenderer.on('e-app::exec', function (event, message) {
+                if (!message) {
+                    return send('e-app::exec', { type: 'worker::solved', payload: message, error: 'empty message' });
+                }
 
-            fill(message, send);
-        });
+                if (message.type !== 'worker::exec') {
+                    return send('e-app::exec', { type: 'worker::solved', payload: message, error: 'unknown message type' });
+                }
+
+                exec(message.payload, send);
+            });
+
+            ipcRenderer.on('e-app::fill', function (event, message) {
+                if (!message) {
+                    return send('e-app::fill', { type: 'worker::filled', payload: message, error: 'empty message' });
+                }
+
+                if (message.type !== 'worker::fill') {
+                    return send('e-app::fill', { type: 'worker::filled', payload: message, error: 'unknown message type' });
+                }
+
+                fill(message.payload, send);
+            });
+        })();
     </script>
 </head>
 <body>

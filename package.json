@@ -6,7 +6,7 @@
   "scripts": {
     "start": "",
     "test:unit": "",
-    "test:func": "node ./test-func/test-css.js",
+    "test:func": "node ./test-func/test-lodash.js",
     "lint": "eslint ./app",
     "precommit": "lint-staged"
   },

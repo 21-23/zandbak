@@ -1,5 +1,5 @@
 exports.JOB_STATE = {
-    ready: 'ready',
+    pending: 'pending',
     inProgress: 'inProgress',
     solved: 'solved', // potential state, should never happen
 };
@@ -7,17 +7,6 @@ exports.JOB_STATE = {
 exports.JOB_RESOLUTION = {
     success: 'success',
     fail: 'fail',
-    timeout: 'timeout',
-};
-
-exports.createJob = function (jobId, task, state) {
-    return {
-        jobId,
-        workerId: null,
-        task,
-        state,
-        timerId: null
-    };
 };
 
 exports.WORKER_STATE = {
@@ -26,10 +15,29 @@ exports.WORKER_STATE = {
     inProgress: 'inProgress',
 };
 
+exports.createJob = function (jobId, fillerId, task, state) {
+    return {
+        jobId,
+        workerId: null,
+        fillerId,
+        task,
+        state,
+        timerId: null
+    };
+};
+
 exports.createWorkerInstance = function (workerId, state) {
     return {
         workerId,
         state,
+    };
+};
+
+exports.createFiller = function (fillerId, content, options) {
+    return {
+        fillerId,
+        content,
+        options,
     };
 };
 
@@ -43,4 +51,8 @@ exports.JOB_INT_ERROR = {
 
 exports.JOB_TIMEOUT_ERROR = {
     error: 'job was timeouted'
+};
+
+exports.JOB_INTERNAL_ERROR = {
+    error: 'job internal error'
 };

@@ -142,6 +142,7 @@
     <script>
         (function() {
             var stub = {};
+            var stubFun = function() {};
             var content = [];
             var ipcRenderer = require('electron').ipcRenderer;
 
@@ -151,7 +152,7 @@
 
             function exec(messagePayload, done) {
                 try {
-                    var result = eval('(function(content, window, document, location, $) {return _.chain(content).' + messagePayload.task.input + '.value()})(content, stub, stub, stub, stub)');
+                    var result = eval('(function(_, content, window, document, location, alert, $) {return _.chain(content).' + messagePayload.task.input + '.value()})(_, content, stub, stub, stub, stubFun, stub)');
                     messagePayload.result = result;
                     done('e-app::exec', { type: 'worker::solved', payload: messagePayload });
                 } catch (e) {

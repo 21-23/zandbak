@@ -56,6 +56,10 @@ function onTaskSolved(task, error, result) {
             return;
         case 'task-4':
             return assert.equal(result, 'DC');
+        case 'task-5':
+            assert.ok(error);
+            assert.ifError(result);
+            return;
         default:
             return assert.ok(false, 'unknown task id');
     }
@@ -73,7 +77,8 @@ setTimeout(() => {
     sandbox
         .exec({ id: 'task-3', input: 'map((a) => a.surname)' }) // interrupted error
         .resetWith(rounds[1])
-        .exec({ id: 'task-4', input: 'get("state")' }); // OK
+        .exec({ id: 'task-4', input: 'get("state")' }) // OK
+        .exec({ id: 'task-5', input: 'map(() => {  } })' }); // internal error
 }, 5000);
 
 setTimeout(sandbox.destroy, 10000);

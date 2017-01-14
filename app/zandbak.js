@@ -107,7 +107,7 @@ function resetWorkers(workers, eApp) {
     });
 }
 
-function onWorkerReady(jobs, workers, workerId, workerMeta, filler, eApp) {
+function onWorkerReady(jobs, workers, workerId, workerMeta, filler, emitter, eApp) {
     if (workerMeta.fillerId !== filler.fillerId) {
         warn('[zandbak]', 'worker', workerId, 'ready with invalid filler', workerMeta.fillerId);
         return fillWorker(workerId, filler, eApp);
@@ -115,7 +115,7 @@ function onWorkerReady(jobs, workers, workerId, workerMeta, filler, eApp) {
 
     setWorkerState(workers, workerId, WORKER_STATE.ready);
 
-    tryExecuteJob(jobs, workers, filler, eApp);
+    tryExecuteJob(jobs, workers, filler, emitter, eApp);
 }
 
 function onWorkerDirty(workers, workerId, fillerId, withError, filler, eApp) {
@@ -136,7 +136,21 @@ function onWorkerDirty(workers, workerId, fillerId, withError, filler, eApp) {
     setWorkerState(workers, workerId, WORKER_STATE.ready);
 }
 
-function onWorkerUnreponsive(workerId, eApp) {
+function onWorkerUnreponsive(workerId, jobs, emitter, eApp) {
+    const job = findJobByWorkerId(jobs, workerId);
+
+    if (job) {
+        const cleanupOk = cleanupJob(jobs, job.jobId);
+
+        if (cleanupOk) {
+            notifyTaskSolve(job.task, UNRESPONSIVE_WORKER_ERROR, null, emitter);
+        } else {
+            warn('[zandbak]', 'invalid job is unresponsive', job.jobId);
+        }
+    } else {
+        warn('[zandbak]', 'worker', workerId, 'is unresponsive w/o any assigned job');
+    }
+
     reloadWorker(workerId, eApp);
 }
 
@@ -159,13 +173,13 @@ function handleWorkerStateChange(payload, workers, jobs, filler, zandbakOptions,
         case 'filling':
             return;
         case 'ready':
-            return onWorkerReady(jobs, workers, workerId, meta, filler, eApp);
+            return onWorkerReady(jobs, workers, workerId, meta, filler, emitter, eApp);
         case 'busy':
             return;
         case 'dirty':
             return;
         case 'unresponsive':
-            return onWorkerUnreponsive(workerId, eApp);
+            return onWorkerUnreponsive(workerId, jobs, emitter, eApp);
         default:
             return warn('[zandbak]', 'unknown worker state', workerId, state);
     }
@@ -177,6 +191,7 @@ function notifyTaskSolve(task, error, result, emitter) {
 
 function interruptJobs(jobs, emitter) {
     jobs.forEach((job) => {
+        clearTimeout(job.timerId);
         notifyTaskSolve(job.task, JOB_INT_ERROR, null, emitter);
     });
     jobs.clear();
@@ -199,19 +214,40 @@ function findPendingJob(jobs) {
     return result;
 }
 
-function removeJob(jobs, jobId) {
+function findJobByWorkerId(jobs, workerId) {
+    let result = null;
+
+    if (jobs.size === 0) {
+        return result;
+    }
+
+    for (const [, job] of jobs) {
+        if (job.workerId && job.workerId === workerId) {
+            result = job;
+            break;
+        }
+    }
+
+    return result;
+}
+
+function cleanupJob(jobs, jobId) {
+    const job = jobs.get(jobId);
+
+    if (!job) {
+        return false;
+    }
+
+    clearTimeout(job.timerId);
     return jobs.delete(jobId);
 }
 
 function handleSolvedTask(error, payload, jobs, workers, filler, emitter, eApp) {
-    const task = payload.task;
-    const jobId = payload.jobId;
-    const workerId = payload.workerId;
-    const fillerId = payload.fillerId;
+    const { task, jobId, workerId, fillerId } = payload;
 
-    const validJob = removeJob(jobs, jobId);
+    const cleanupOk = cleanupJob(jobs, jobId);
 
-    if (validJob) {
+    if (cleanupOk) {
         if (error) {
             notifyTaskSolve(task, JOB_INTERNAL_ERROR, null, emitter);
         } else {
@@ -225,6 +261,18 @@ function handleSolvedTask(error, payload, jobs, workers, filler, emitter, eApp) 
     onWorkerDirty(workers, workerId, fillerId, !!error, filler, eApp);
 }
 
+function handleTimeoutedTask(task, jobId, workerId, jobs, emitter, eApp) {
+    const cleanupOk = cleanupJob(jobs, jobId);
+    if (cleanupOk) {
+        notifyTaskSolve(task, JOB_TIMEOUT_ERROR, null, emitter);
+    } else {
+        warn('[zandbak]', 'invalid job timeouted', jobId);
+    }
+
+    // TODO: kill worker here as simple reload may not help (e.g. while(true) { alert(1); })
+    reloadWorker(workerId, eApp);
+}
+
 function _resetWith(filler, jobs, workers, emitter, eApp) {
     interruptJobs(jobs, emitter);
 
@@ -236,12 +284,18 @@ function _exec(task, jobs, workers, filler, zandbakOptions, emitter, eApp) {
 
     jobs.set(job.jobId, job);
 
-    tryExecuteJob(jobs, workers, filler, eApp);
+    tryExecuteJob(jobs, workers, filler, emitter, eApp);
 }
 
-function executeJob(job, worker, filler, eApp) {
+function executeJob(job, worker, jobs, filler, emitter, eApp) {
     job.workerId = worker.workerId;
     job.state = JOB_STATE.inProgress;
+
+    if (filler.options.taskTimeoutMs) {
+        job.timerId = setTimeout(() => {
+            handleTimeoutedTask(job.task, job.jobId, job.workerId, jobs, emitter, eApp);
+        }, filler.options.taskTimeoutMs);
+    }
 
     worker.state = WORKER_STATE.inProgress;
 
@@ -256,7 +310,7 @@ function executeJob(job, worker, filler, eApp) {
     });
 }
 
-function tryExecuteJob(jobs, workers, filler, eApp) {
+function tryExecuteJob(jobs, workers, filler, emitter, eApp) {
     const job = findPendingJob(jobs);
 
     if (!job) {
@@ -270,7 +324,7 @@ function tryExecuteJob(jobs, workers, filler, eApp) {
         return log('[zandbak]', 'No ready workers');
     }
 
-    executeJob(job, worker, filler, eApp);
+    executeJob(job, worker, jobs, filler, emitter, eApp);
 }
 
 function _handleEAppMessage(message, jobs, workers, filler, zandbakOptions, emitter, eApp) {

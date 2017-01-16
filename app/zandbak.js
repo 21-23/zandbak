@@ -107,7 +107,7 @@ function resetWorkers(workers, eApp) {
     });
 }
 
-function onWorkerReady(jobs, workers, workerId, workerMeta, filler, emitter, eApp) {
+function onWorkerReady(jobs, workers, workerId, workerMeta, filler, zandbakOptions, emitter, eApp) {
     if (workerMeta.fillerId !== filler.fillerId) {
         warn('[zandbak]', 'worker', workerId, 'ready with invalid filler', workerMeta.fillerId);
         return fillWorker(workerId, filler, eApp);
@@ -115,10 +115,10 @@ function onWorkerReady(jobs, workers, workerId, workerMeta, filler, emitter, eAp
 
     setWorkerState(workers, workerId, WORKER_STATE.ready);
 
-    tryExecuteJob(jobs, workers, filler, emitter, eApp);
+    tryExecuteJob(jobs, workers, filler, zandbakOptions, emitter, eApp);
 }
 
-function onWorkerDirty(workers, workerId, jobs, fillerId, withError, filler, emitter, eApp) {
+function onWorkerDirty(workers, workerId, jobs, fillerId, withError, filler, zandbakOptions, emitter, eApp) {
     const invalidFiller = fillerId !== filler.fillerId;
 
     if (filler.options.reloadWorkers || invalidFiller) {
@@ -134,7 +134,7 @@ function onWorkerDirty(workers, workerId, jobs, fillerId, withError, filler, emi
     // it is possible that we do not want to do anything with a dirty worker
     // it is ready to take another task
     setWorkerState(workers, workerId, WORKER_STATE.ready);
-    tryExecuteJob(jobs, workers, filler, emitter, eApp);
+    tryExecuteJob(jobs, workers, filler, zandbakOptions, emitter, eApp);
 }
 
 function onWorkerUnresponsive(workerId, jobs, emitter, eApp) {
@@ -174,7 +174,7 @@ function handleWorkerStateChange(payload, workers, jobs, filler, zandbakOptions,
         case 'filling':
             return;
         case 'ready':
-            return onWorkerReady(jobs, workers, workerId, meta, filler, emitter, eApp);
+            return onWorkerReady(jobs, workers, workerId, meta, filler, zandbakOptions, emitter, eApp);
         case 'busy':
             return;
         case 'dirty':
@@ -248,7 +248,7 @@ function cleanupJob(jobs, jobId) {
     return job;
 }
 
-function handleSolvedTask(error, payload, jobs, workers, filler, emitter, eApp) {
+function handleSolvedTask(error, payload, jobs, workers, filler, zandbakOptions, emitter, eApp) {
     const { task, jobId, workerId, fillerId } = payload;
 
     const job = cleanupJob(jobs, jobId);
@@ -264,7 +264,7 @@ function handleSolvedTask(error, payload, jobs, workers, filler, emitter, eApp) 
         warn('[zandbak]', 'invalid job solved', jobId);
     }
 
-    onWorkerDirty(workers, workerId, jobs, fillerId, !!error, filler, emitter, eApp);
+    onWorkerDirty(workers, workerId, jobs, fillerId, !!error, filler, zandbakOptions, emitter, eApp);
 }
 
 function handleTimeoutedTask(task, jobId, workerId, jobs, emitter, eApp) {
@@ -290,7 +290,7 @@ function _exec(task, jobs, workers, filler, zandbakOptions, emitter, eApp) {
 
     jobs.set(job.jobId, job);
 
-    tryExecuteJob(jobs, workers, filler, emitter, eApp);
+    tryExecuteJob(jobs, workers, filler, zandbakOptions, emitter, eApp);
 }
 
 function executeJob(job, worker, jobs, filler, emitter, eApp) {
@@ -316,7 +316,7 @@ function executeJob(job, worker, jobs, filler, emitter, eApp) {
     });
 }
 
-function tryExecuteJob(jobs, workers, filler, emitter, eApp) {
+function tryExecuteJob(jobs, workers, filler, zandbakOptions, emitter, eApp) {
     const job = findPendingJob(jobs);
 
     if (!job) {
@@ -326,8 +326,12 @@ function tryExecuteJob(jobs, workers, filler, emitter, eApp) {
     const worker = findReadyWorker(workers);
 
     if (!worker) {
-        // TODO: create additional
-        return log('[zandbak]', 'No ready workers');
+        log('[zandbak]', 'No ready workers');
+        if (workers.size > 0 && workers.size < zandbakOptions.maxWorkersCount) {
+            // at least 1 worker was created => e-app is ready to create more
+            log('[zandbak]', 'Create additional worker');
+            return createWorkers(workers, 1, eApp);
+        }
     }
 
     executeJob(job, worker, jobs, filler, emitter, eApp);
@@ -342,7 +346,7 @@ function _handleEAppMessage(message, jobs, workers, filler, zandbakOptions, emit
         case 'e-app::workerStateChange':
             return handleWorkerStateChange(payload, workers, jobs, filler, zandbakOptions, emitter, eApp);
         case 'e-app::taskSolved':
-            return handleSolvedTask(error, payload, jobs, workers, filler, emitter, eApp);
+            return handleSolvedTask(error, payload, jobs, workers, filler, zandbakOptions, emitter, eApp);
         default:
             return warn('[zandbak]', 'Unknown message from e-app');
     }

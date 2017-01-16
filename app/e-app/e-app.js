@@ -123,11 +123,11 @@ ipcMain.on('e-app::exec', (event, message) => {
     const workerId = win.id;
 
     if (!message || message.error) {
-        warn('[e-app]', 'on worker fill error', message);
+        warn('[e-app]', 'on job exec error', message);
     }
 
     if (message.type !== 'worker::solved') {
-        warn('[e-app]', 'on worker fill error, unknown message type', message);
+        warn('[e-app]', 'on job exec error, unknown message type', message);
     }
 
     process.send({

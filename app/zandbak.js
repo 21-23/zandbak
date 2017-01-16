@@ -136,7 +136,7 @@ function onWorkerDirty(workers, workerId, fillerId, withError, filler, eApp) {
     setWorkerState(workers, workerId, WORKER_STATE.ready);
 }
 
-function onWorkerUnreponsive(workerId, jobs, emitter, eApp) {
+function onWorkerUnresponsive(workerId, jobs, emitter, eApp) {
     const job = findJobByWorkerId(jobs, workerId);
 
     if (job) {
@@ -179,7 +179,7 @@ function handleWorkerStateChange(payload, workers, jobs, filler, zandbakOptions,
         case 'dirty':
             return;
         case 'unresponsive':
-            return onWorkerUnreponsive(workerId, jobs, emitter, eApp);
+            return onWorkerUnresponsive(workerId, jobs, emitter, eApp);
         default:
             return warn('[zandbak]', 'unknown worker state', workerId, state);
     }

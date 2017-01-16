@@ -5,8 +5,8 @@ const EventEmitter = require('events');
 const _uniqueid = require('lodash.uniqueid');
 const electron = require('electron');
 
-const { log, warn, error } = require('./logger');
-const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, JOB_INT_ERROR, JOB_INTERNAL_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller } = require('./helpers');
+const { log, warn, error, perf } = require('./logger');
+const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, JOB_INT_ERROR, JOB_INTERNAL_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, hrtimeToMs } = require('./helpers');
 
 const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 const emptyFiller = createFiller('filler-empty', null, { reloadWorkers: true });
@@ -17,7 +17,7 @@ function _createEAppProc(options) {
         electron,
         [eAppPath].concat(JSON.stringify(options || {})),
         {
-            stdio: [null, process.stdout, process.stderrm, 'ipc']
+            stdio: [null, process.stdout, process.stderr, 'ipc']
         }
     );
 
@@ -137,13 +137,13 @@ function onWorkerDirty(workers, workerId, fillerId, withError, filler, eApp) {
 }
 
 function onWorkerUnresponsive(workerId, jobs, emitter, eApp) {
-    const job = findJobByWorkerId(jobs, workerId);
+    let job = findJobByWorkerId(jobs, workerId);
 
     if (job) {
-        const cleanupOk = cleanupJob(jobs, job.jobId);
+        job = cleanupJob(jobs, job.jobId);
 
-        if (cleanupOk) {
-            notifyTaskSolve(job.task, UNRESPONSIVE_WORKER_ERROR, null, emitter);
+        if (job) {
+            notifyTaskSolve(job.task, UNRESPONSIVE_WORKER_ERROR, null, emitter, job.hrtime);
         } else {
             warn('[zandbak]', 'invalid job is unresponsive', job.jobId);
         }
@@ -185,14 +185,17 @@ function handleWorkerStateChange(payload, workers, jobs, filler, zandbakOptions,
     }
 }
 
-function notifyTaskSolve(task, error, result, emitter) {
+function notifyTaskSolve(task, error, result, emitter, jobHrtime) {
+    if (jobHrtime) {
+        perf('[zandbak]', 'task', task, 'resolved in', hrtimeToMs(process.hrtime(jobHrtime)), 'ms');
+    }
     emitter.emit('solved', task, error, result);
 }
 
 function interruptJobs(jobs, emitter) {
     jobs.forEach((job) => {
         clearTimeout(job.timerId);
-        notifyTaskSolve(job.task, JOB_INT_ERROR, null, emitter);
+        notifyTaskSolve(job.task, JOB_INT_ERROR, null, emitter, job.hrtime);
     });
     jobs.clear();
 }
@@ -239,20 +242,22 @@ function cleanupJob(jobs, jobId) {
     }
 
     clearTimeout(job.timerId);
-    return jobs.delete(jobId);
+    jobs.delete(jobId);
+
+    return job;
 }
 
 function handleSolvedTask(error, payload, jobs, workers, filler, emitter, eApp) {
     const { task, jobId, workerId, fillerId } = payload;
 
-    const cleanupOk = cleanupJob(jobs, jobId);
+    const job = cleanupJob(jobs, jobId);
 
-    if (cleanupOk) {
+    if (job) {
         if (error) {
-            notifyTaskSolve(task, JOB_INTERNAL_ERROR, null, emitter);
+            notifyTaskSolve(task, JOB_INTERNAL_ERROR, null, emitter, job.hrtime);
         } else {
             const result = payload.result;
-            notifyTaskSolve(task, null, result, emitter);
+            notifyTaskSolve(task, null, result, emitter, job.hrtime);
         }
     } else {
         warn('[zandbak]', 'invalid job solved', jobId);
@@ -262,9 +267,9 @@ function handleSolvedTask(error, payload, jobs, workers, filler, emitter, eApp) 
 }
 
 function handleTimeoutedTask(task, jobId, workerId, jobs, emitter, eApp) {
-    const cleanupOk = cleanupJob(jobs, jobId);
-    if (cleanupOk) {
-        notifyTaskSolve(task, JOB_TIMEOUT_ERROR, null, emitter);
+    const job = cleanupJob(jobs, jobId);
+    if (job) {
+        notifyTaskSolve(task, JOB_TIMEOUT_ERROR, null, emitter, job.hrtime);
     } else {
         warn('[zandbak]', 'invalid job timeouted', jobId);
     }

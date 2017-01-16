@@ -3,9 +3,9 @@ const zandbak = require('../app/zandbak');
 const sandbox = zandbak({
     zandbakOptions: { workersCount: 2, maxWorkersCount: 5 },
     eAppOptions: {
-        showDevTools: true,
-        browserWindow: { width: 400, height: 400, show: true },
-        urlOptions: { userAgent: 'cssqd-ua' },
+        showDevTools: false,
+        browserWindow: { width: 400, height: 400, show: false },
+        urlOptions: { userAgent: '_qd-ua' },
         sand: 'css', // sand = 'lodash' | 'css'
     }
 });
@@ -36,38 +36,28 @@ const rounds = [
 ];
 
 
-const timing = {};
-let avgTimingNanoSec = 0;
-
-function onTaskSolved(task, result) {
-    const diff = process.hrtime(timing[task.taskId]);
-
-    console.log('[test-css]', 'Task solved', task, '; result:', result, 'time:', diff);
-
-    avgTimingNanoSec += ((diff[0] * 1000000000) + diff[1]);
+function onTaskSolved(task, error, result) {
+    console.log('[test-css]', 'Task solved', task, '; error', error, '; result:', result);
 }
 
 sandbox.on('solved', onTaskSolved);
+sandbox.resetWith(rounds[0]);
 
-
-// sandbox.resetWith(rounds[0]);
-
-// const tasksCount = 100;
-// let taskIterator = tasksCount;
-// while (--taskIterator >= 0) {
-//     const timeout = Math.floor(Math.random() * 50);
-//     // eslint-disable-next-line
-//     setTimeout(((taskId) => (() => {
-//         timing[taskId] = process.hrtime();
-//         sandbox.exec({ taskId, payload: { selector: `h${taskIterator}` } });
-//     }))(taskIterator), (timeout * 1000));
-// }
-
-
+setTimeout(() => {
+    sandbox
+        .exec({ id: 'task-0', input: '.parent' })
+        .exec({ id: 'task-1', input: 'span' })
+        .exec({ id: 'task-2', input: 'span' });
+}, 1000);
 // setTimeout(() => {
-//     console.log('[test-css]', 'Sum task time: ', avgTimingNanoSec / 1000000000, 'sec');
-//     console.log('[test-css]', 'Avg task time: ', ((avgTimingNanoSec / tasksCount) / 1000000000), 'sec');
+//     sandbox
+//         .exec({ id: 'task-3', input: 'h' })
+//         .resetWith(rounds[1]);
+// }, 3000);
+// setTimeout(() => {
+//     sandbox
+//         .exec({ id: 'task-4', input: 'di' })
+//         .exec({ id: 'task-5', input: 'div' });
+// }, 5000);
 
-//     sandbox.off('solved', onTaskSolved);
-//     sandbox.destroy();
-// }, 20000);
+// setTimeout(sandbox.destroy, 10000);

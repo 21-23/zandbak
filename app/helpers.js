@@ -15,14 +15,15 @@ exports.WORKER_STATE = {
     inProgress: 'inProgress',
 };
 
-exports.createJob = function (jobId, fillerId, task, state) {
+exports.createJob = function (jobId, fillerId, task, state, hrtime = process.hrtime()) {
     return {
         jobId,
         workerId: null,
         fillerId,
         task,
         state,
-        timerId: null
+        timerId: null,
+        hrtime
     };
 };
 
@@ -39,6 +40,10 @@ exports.createFiller = function (fillerId, content, options) {
         content,
         options,
     };
+};
+
+exports.hrtimeToMs = function (hrtime) {
+    return ((hrtime[0] * 1e9) + hrtime[1]) / 1e6;
 };
 
 exports.UNRESPONSIVE_WORKER_ERROR = {

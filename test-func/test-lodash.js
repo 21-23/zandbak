@@ -5,8 +5,8 @@ const zandbak = require('../app/zandbak');
 const sandbox = zandbak({
     zandbakOptions: { workersCount: 2, maxWorkersCount: 5 },
     eAppOptions: {
-        showDevTools: true,
-        browserWindow: { width: 400, height: 400, show: true },
+        showDevTools: false,
+        browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
         sand: 'lodash', // sand = 'lodash' | 'css'
     }
@@ -65,18 +65,25 @@ function onTaskSolved(task, error, result) {
     }
 }
 
-sandbox.on('solved', onTaskSolved);
+// sandbox.resetWith may increase task time up to 200-300ms
+// try to call it in advance
 
-sandbox
-    .resetWith(rounds[0])
-    .exec({ id: 'task-0', input: 'map("name")' }) // OK
-    .exec({ id: 'task-1', input: 'map(name")' }) // internal error
-    .exec({ id: 'task-2', input: 'map((a) => a.age)' }); // OK
+sandbox.on('solved', onTaskSolved);
+sandbox.resetWith(rounds[0]);
 
 setTimeout(() => {
     sandbox
+        .exec({ id: 'task-0', input: 'map("name")' }) // OK
+        .exec({ id: 'task-1', input: 'map(name")' }) // internal error
+        .exec({ id: 'task-2', input: 'map((a) => a.age)' }); // OK
+}, 1000);
+setTimeout(() => {
+    sandbox
         .exec({ id: 'task-3', input: 'map((a) => a.surname)' }) // interrupted error
-        .resetWith(rounds[1])
+        .resetWith(rounds[1]);
+}, 3000);
+setTimeout(() => {
+    sandbox
         .exec({ id: 'task-4', input: 'get("state")' }) // OK
         .exec({ id: 'task-5', input: 'map(() => {  } })' }); // internal error
 }, 5000);

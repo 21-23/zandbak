@@ -49,15 +49,15 @@ setTimeout(() => {
         .exec({ id: 'task-1', input: 'span' })
         .exec({ id: 'task-2', input: 'span' });
 }, 1000);
-// setTimeout(() => {
-//     sandbox
-//         .exec({ id: 'task-3', input: 'h' })
-//         .resetWith(rounds[1]);
-// }, 3000);
-// setTimeout(() => {
-//     sandbox
-//         .exec({ id: 'task-4', input: 'di' })
-//         .exec({ id: 'task-5', input: 'div' });
-// }, 5000);
+setTimeout(() => {
+    sandbox
+        .exec({ id: 'task-3', input: 'h' })
+        .resetWith(rounds[1]);
+}, 3000);
+setTimeout(() => {
+    sandbox
+        .exec({ id: 'task-4', input: 'di' })
+        .exec({ id: 'task-5', input: 'div' });
+}, 5000);
 
-// setTimeout(sandbox.destroy, 10000);
+setTimeout(sandbox.destroy, 10000);

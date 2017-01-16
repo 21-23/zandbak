@@ -118,7 +118,7 @@ function onWorkerReady(jobs, workers, workerId, workerMeta, filler, emitter, eAp
     tryExecuteJob(jobs, workers, filler, emitter, eApp);
 }
 
-function onWorkerDirty(workers, workerId, fillerId, withError, filler, eApp) {
+function onWorkerDirty(workers, workerId, jobs, fillerId, withError, filler, emitter, eApp) {
     const invalidFiller = fillerId !== filler.fillerId;
 
     if (filler.options.reloadWorkers || invalidFiller) {
@@ -134,6 +134,7 @@ function onWorkerDirty(workers, workerId, fillerId, withError, filler, eApp) {
     // it is possible that we do not want to do anything with a dirty worker
     // it is ready to take another task
     setWorkerState(workers, workerId, WORKER_STATE.ready);
+    tryExecuteJob(jobs, workers, filler, emitter, eApp);
 }
 
 function onWorkerUnresponsive(workerId, jobs, emitter, eApp) {
@@ -263,7 +264,7 @@ function handleSolvedTask(error, payload, jobs, workers, filler, emitter, eApp) 
         warn('[zandbak]', 'invalid job solved', jobId);
     }
 
-    onWorkerDirty(workers, workerId, fillerId, !!error, filler, eApp);
+    onWorkerDirty(workers, workerId, jobs, fillerId, !!error, filler, emitter, eApp);
 }
 
 function handleTimeoutedTask(task, jobId, workerId, jobs, emitter, eApp) {

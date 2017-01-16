@@ -11,7 +11,7 @@ const url = require('url');
 
 const { app, BrowserWindow, ipcMain } = require('electron');
 
-const { log, warn } = require('./e-app-logger');
+const eAppLogger = require('./e-app-logger');
 
 const INTERNAL_WORKER_STATE = {
     empty: 'empty',
@@ -25,6 +25,7 @@ const INTERNAL_WORKER_STATE = {
 };
 
 const args = JSON.parse(process.argv[2]);
+const { warn, log } = eAppLogger(args.logs);
 
 function destroy() {
     app.exit(0);
@@ -100,7 +101,7 @@ function loadWorker(payload) {
 }
 
 process.on('message', ({ type, payload }) => {
-    log('[e-app]', 'onHostMessage type:', type);
+    log('onHostMessage type:', type);
 
     switch (type) {
         case 'e-app::createWorker':
@@ -114,20 +115,17 @@ process.on('message', ({ type, payload }) => {
         case 'e-app::destroy':
             return destroy();
         default:
-            warn('[e-app]', 'unknown message');
+            warn('unknown message');
     }
 });
 
 ipcMain.on('e-app::exec', (event, message) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const workerId = win.id;
-
     if (!message || message.error) {
-        warn('[e-app]', 'on job exec error', message);
+        warn('on job exec error', message);
     }
 
     if (message.type !== 'worker::solved') {
-        warn('[e-app]', 'on job exec error, unknown message type', message);
+        warn('on job exec error, unknown message type', message);
     }
 
     process.send({
@@ -144,12 +142,12 @@ ipcMain.on('e-app::fill', (event, message) => {
     const workerId = win.id;
 
     if (!message || message.error) {
-        warn('[e-app]', 'on worker fill error', message);
+        warn('on worker fill error', message);
         return sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
     }
 
     if (message.type !== 'worker::filled') {
-        warn('[e-app]', 'on worker fill error, unknown message type', message);
+        warn('on worker fill error, unknown message type', message);
         return sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
     }
 

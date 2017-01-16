@@ -1,12 +1,17 @@
 const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
-    zandbakOptions: { workersCount: 2, maxWorkersCount: 5 },
+    zandbakOptions: {
+        workersCount: 2,
+        maxWorkersCount: 5,
+        logs: '+error,-warn,-log,+perf',
+    },
     eAppOptions: {
         showDevTools: false,
         browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
         sand: 'css', // sand = 'lodash' | 'css'
+        logs: '+error,-warn,-log',
     }
 });
 
@@ -59,5 +64,8 @@ setTimeout(() => {
         .exec({ id: 'task-4', input: 'di' })
         .exec({ id: 'task-5', input: 'div' });
 }, 5000);
+setTimeout(() => {
+    sandbox.resetWith(null);
+}, 7000);
 
 setTimeout(sandbox.destroy, 10000);

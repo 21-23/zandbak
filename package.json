@@ -17,7 +17,7 @@
     "url": "git@github.com:kirilknysh/zandbak.git",
     "type": "git"
   },
-  "author": "Kiril Knysh <k.knysh@gmail.com>",
+  "author": "games4nerds",
   "license": "MIT",
   "dependencies": {
     "electron": "^1.4.13",

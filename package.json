@@ -14,10 +14,10 @@
     "precommit": "lint-staged"
   },
   "repository": {
-    "url": "git@github.com:kirilknysh/zandbak.git",
+    "url": "git@github.com:21-23/zandbak.git",
     "type": "git"
   },
-  "author": "games4nerds",
+  "author": "21-23",
   "license": "LGPL-3.0",
   "dependencies": {
     "electron": "^1.4.13",

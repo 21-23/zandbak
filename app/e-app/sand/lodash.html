@@ -163,7 +163,7 @@
             function fill(payload, done) {
                 content = [];
 
-                content = payload.filler;
+                content = typeof payload.filler === 'string' ? JSON.parse(payload.filler) : payload.filler;
                 payload.filler = undefined;
 
                 done('e-app::fill', { type: 'worker::filled', payload: payload });

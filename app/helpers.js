@@ -46,18 +46,8 @@ exports.hrtimeToMs = function (hrtime) {
     return ((hrtime[0] * 1e9) + hrtime[1]) / 1e6;
 };
 
-exports.UNRESPONSIVE_WORKER_ERROR = {
-    error: 'unresponsive worker'
-};
+exports.UNRESPONSIVE_WORKER_ERROR = 'unresponsive';
 
-exports.JOB_INT_ERROR = {
-    error: 'job was interrupted'
-};
+exports.JOB_INT_ERROR = 'interrupted';
 
-exports.JOB_TIMEOUT_ERROR = {
-    error: 'job was timeouted'
-};
-
-exports.JOB_INTERNAL_ERROR = {
-    error: 'job internal error'
-};
+exports.JOB_TIMEOUT_ERROR = 'time out';

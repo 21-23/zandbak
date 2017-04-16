@@ -7,7 +7,7 @@ const electron = require('electron');
 
 const logger = require('./logger');
 
-const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, JOB_INT_ERROR, JOB_INTERNAL_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, hrtimeToMs } = require('./helpers');
+const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, hrtimeToMs } = require('./helpers');
 
 const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 const emptyFiller = createFiller('filler-empty', null, { reloadWorkers: true });
@@ -256,10 +256,9 @@ function handleSolvedTask(error, payload, jobs, workers, filler, zandbakOptions,
 
     if (job) {
         if (error) {
-            notifyTaskSolve(task, JOB_INTERNAL_ERROR, null, emitter, job.hrtime, log);
+            notifyTaskSolve(task, error, null, emitter, job.hrtime, log);
         } else {
-            const result = payload.result;
-            notifyTaskSolve(task, null, result, emitter, job.hrtime, log);
+            notifyTaskSolve(task, null, payload.result, emitter, job.hrtime, log);
         }
     } else {
         log.warn('invalid job solved', jobId);

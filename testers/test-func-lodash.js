@@ -48,19 +48,19 @@ function onTaskSolved(task, error, result) {
 
     switch (task.id) {
         case 'task-0':
-            return assert.deepEqual(result, ['Johnie', 'Johnie', 'Adam']);
+            return assert.deepEqual(JSON.parse(result), ['Johnie', 'Johnie', 'Adam']);
         case 'task-1':
             assert.ok(error);
             assert.ifError(result);
             return;
         case 'task-2':
-            return assert.deepEqual(result, [14, 20, 99]);
+            return assert.deepEqual(JSON.parse(result), [14, 20, 99]);
         case 'task-3':
             assert.ok(error);
             assert.ifError(result);
             return;
         case 'task-4':
-            return assert.equal(result, 'DC');
+            return assert.equal(JSON.parse(result), 'DC');
         case 'task-5':
             assert.ok(error);
             assert.ifError(result);

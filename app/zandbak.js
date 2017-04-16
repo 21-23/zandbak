@@ -412,6 +412,11 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
         _handleEAppMessage(message, jobs, workers, filler, zandbakOptions, emitter, eApp, log);
     });
 
+    eApp.on('error', (err) => {
+        log.error('Error in electron app', err);
+        emitter.emit('error', err);
+    });
+
     process.on('uncaughtException', (e) => {
         log.error('uncaughtException:', e);
         instance.destroy();

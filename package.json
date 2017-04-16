@@ -19,6 +19,7 @@
   },
   "author": "21-23",
   "license": "LGPL-3.0",
+  "private": true,
   "dependencies": {
     "electron": "^1.4.13",
     "lodash.uniqueid": "^4.0.1"

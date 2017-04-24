@@ -145,14 +145,19 @@
             var stubFun = function() {};
             var content = [];
             var ipcRenderer = require('electron').ipcRenderer;
+            var _lodash = Object.freeze(_);
+            window.require = stubFun;
+            window.process = stub;
 
             function send(channel, result) {
                 return ipcRenderer.send(channel, result);
             }
 
             function exec(messagePayload, done) {
+                var puzzleContent = _.cloneDeep(content);
+
                 try {
-                    var result = eval('(function(_, content, window, document, location, alert, $, require, process, global) {"use strict"; return _.chain(content).' + messagePayload.task.input + '.value()}).call(stub, _, content, stub, stub, stub, stubFun, stub, stubFun, stub, stub)');
+                    var result = eval('(function(_, content, ipcRenderer, window, document, location, alert, $, require, process, global, setTimeout, setInterval, requestAnimationFrame, requestIdleCallback) {"use strict"; return _.chain(content).' + messagePayload.task.input + '.value()}).call(stub, _lodash, puzzleContent, stub, stub, stub, stub, stubFun, stub, stubFun, stub, stub, stubFun, stubFun, stubFun, stubFun)');
 
                     result = JSON.stringify(result);
 

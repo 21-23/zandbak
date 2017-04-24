@@ -31,6 +31,7 @@ exports.createWorkerInstance = function (workerId, state) {
     return {
         workerId,
         state,
+        hrtime: null
     };
 };
 

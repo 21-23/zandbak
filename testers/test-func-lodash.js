@@ -7,6 +7,9 @@ const sandbox = zandbak({
         workersCount: 2,
         maxWorkersCount: 5,
         logs: '+error,-warn,-log,+perf',
+        validators: [
+            { name: 'esprima' }
+        ],
     },
     eAppOptions: {
         showDevTools: false,

@@ -25,6 +25,41 @@ function _createEAppProc(options) {
     return child;
 }
 
+function _createValidators(options) {
+    const validators = [];
+
+    if (!options) {
+        return validators;
+    }
+
+    options.forEach((validatorOptions) => {
+        validators.push(require(`./validators/${validatorOptions.name}`));
+    });
+
+    return validators;
+}
+
+function _destroyValidators(validators) {
+    validators.forEach((validator) => {
+        validator.destroy();
+    });
+}
+
+function validate(input, validators) {
+    let error = null;
+
+    for (let i = 0; i < validators.length; i++) {
+        error = validators[i].validate(input);
+
+        if (error) {
+            // if there's an error from validator - break the loop and return the error
+            break;
+        }
+    }
+
+    return error;
+}
+
 function _destroyEAppProc(eApp) {
     eApp.removeAllListeners('message');
 
@@ -300,8 +335,15 @@ function _resetWith(filler, jobs, workers, emitter, eApp, log) {
     resetWorkers(workers, eApp);
 }
 
-function _exec(task, jobs, workers, filler, zandbakOptions, emitter, eApp, log) {
-    const job = createJob(_uniqueid('job-'), filler.fillerId, task, JOB_STATE.pending);
+function _exec(task, jobs, workers, validators, filler, zandbakOptions, emitter, eApp, log) {
+    const hrtime = process.hrtime();
+    const validationError = validate(task.input, validators);
+
+    if (validationError) {
+        return notifyTaskSolve(task, validationError, null, emitter, hrtime, log);
+    }
+
+    const job = createJob(_uniqueid('job-'), filler.fillerId, task, JOB_STATE.pending, hrtime);
 
     jobs.set(job.jobId, job);
 
@@ -378,6 +420,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
     let filler = emptyFiller;
 
     let eApp = _createEAppProc(eAppOptions);
+    let validators = _createValidators(zandbakOptions.validators);
 
     const instance = {
         resetWith: (newFiller) => {
@@ -394,7 +437,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
             return instance;
         },
         exec: (task) => {
-            _exec(task, jobs, workers, filler, zandbakOptions, emitter, eApp, log);
+            _exec(task, jobs, workers, validators, filler, zandbakOptions, emitter, eApp, log);
 
             return instance;
         },
@@ -402,6 +445,10 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
             if (eApp) {
                 _destroyEAppProc(eApp);
                 eApp = null;
+            }
+            if (validators) {
+                _destroyValidators(validators);
+                validators = null;
             }
         },
         // sugar? yes, please

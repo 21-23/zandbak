@@ -21,6 +21,7 @@
         "consistent-return": "off",
         "no-console": "off",
         "no-restricted-syntax": ["error", "DebuggerStatement", "ForInStatement", "LabeledStatement", "WithStatement"],
-        "dot-notation": "off"
+        "dot-notation": "off",
+        "import/no-dynamic-require": "off"
     }
 }

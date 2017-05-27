@@ -4,7 +4,7 @@ const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
     zandbakOptions: {
-        workersCount: 5,
+        workersCount: 1,
         workerOptions: {
             subworkersCount: 10,
         },
@@ -25,9 +25,9 @@ const sandbox = zandbak({
 const rounds = [
     {
         content: `[
-            { name: 'Johnie', surname: 'Walker', age: 14 },
-            { name: 'Johnie', surname: 'Walker', age: 20 },
-            { name: 'Adam', surname: 'Smith', age: 99 },
+            { "name": "Johnie", "surname": "Walker", "age": 14 },
+            { "name": "Johnie", "surname": "Walker", "age": 20 },
+            { "name": "Adam", "surname": "Smith", "age": 99 }
         ]`,
         options: {
             reloadWorkers: false,
@@ -37,8 +37,8 @@ const rounds = [
     },
     {
         content: `{
-            state: 'DC',
-            list: ['W', 'A', 'S', 'D']
+            "state": "DC",
+            "list": ["W", "A", "S", "D"]
         }`,
         options: {
             reloadWorkers: false,
@@ -51,28 +51,28 @@ const rounds = [
 function onTaskSolved(task, error, result) {
     console.log('[test-lodash]', 'Task solved', task, '; error', error, '; result:', result);
 
-    // switch (task.id) {
-    //     case 'task-0':
-    //         return assert.deepEqual(JSON.parse(result), ['Johnie', 'Johnie', 'Adam']);
-    //     case 'task-1':
-    //         assert.ok(error);
-    //         assert.ifError(result);
-    //         return;
-    //     case 'task-2':
-    //         return assert.deepEqual(JSON.parse(result), [14, 20, 99]);
-    //     case 'task-3':
-    //         assert.ok(error);
-    //         assert.ifError(result);
-    //         return;
-    //     case 'task-4':
-    //         return assert.equal(JSON.parse(result), 'DC');
-    //     case 'task-5':
-    //         assert.ok(error);
-    //         assert.ifError(result);
-    //         return;
-    //     default:
-    //         return assert.ok(false, 'unknown task id');
-    // }
+    switch (task.id) {
+        case 'task-0':
+            return assert.deepEqual(JSON.parse(result), ['Johnie', 'Johnie', 'Adam']);
+        case 'task-1':
+            assert.ok(error);
+            assert.ifError(result);
+            return;
+        case 'task-2':
+            return assert.deepEqual(JSON.parse(result), [14, 20, 99]);
+        case 'task-3':
+            assert.ok(error);
+            assert.ifError(result);
+            return;
+        case 'task-4':
+            return assert.equal(JSON.parse(result), 'DC');
+        case 'task-5':
+            assert.ok(error);
+            assert.ifError(result);
+            return;
+        default:
+            return assert.ok(false, 'unknown task id');
+    }
 }
 
 // sandbox.resetWith may increase task time up to 200-300ms

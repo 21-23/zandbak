@@ -4,7 +4,7 @@ const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
     zandbakOptions: {
-        workersCount: [5],
+        workersCount: [5, 10],
         logs: '+error,-warn,-log,+perf',
         validators: [
             { name: 'esprima' }
@@ -14,7 +14,7 @@ const sandbox = zandbak({
         showDevTools: false,
         browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
-        sand: 'lodash', // sand = 'lodash' | 'css' | 'lodash/subworkers'
+        sand: 'lodash/subworkers', // sand = 'lodash' | 'css' | 'lodash/subworkers'
         logs: '+error,+perf',
     }
 });
@@ -29,7 +29,7 @@ const rounds = [
         options: {
             reloadWorkers: false,
             refillWorkers: false,
-            taskTimeoutMs: 500,
+            taskTimeoutMs: 50,
         }
     },
     {
@@ -40,7 +40,7 @@ const rounds = [
         options: {
             reloadWorkers: false,
             refillWorkers: false,
-            taskTimeoutMs: 500,
+            taskTimeoutMs: 50,
         }
     }
 ];

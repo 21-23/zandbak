@@ -1,9 +1,45 @@
 /*
- * Task lifecycle:
+ * e-app lifecycle:
  *
- * createWorker                                                            fillWorker                                      loadWorker                                 reloadWorker
- *     |           loadSand              did-finish-load                       |                worker::filled                 |               worker::solved              |                did-finish-load
- *     | empty ---------|----> loading --------|---------> readyForFiller------| -----> filling -------|--------> ready -------|------> busy --------|--------> dirty -----|-----> loading --------|----------> readyForFiller --- - - -
+ *      commands                  e-app                   worker                    sub-workers
+ *          |                       |                       |                           |
+ * <--- e-app::ready -------------- |                       |                           |
+ *          |                       |                       |                           |
+ *      e-app:>create-worker        |                       |                           |
+ *          |----------------> createWorker                 |                           |
+ *          |                       |---------------------> |                           |
+ *          |                       | <- did-finish-load -- |                           |
+ *          |                       | -- wrk:>init--------> |                           |
+ *          |                       |              createSubworkers                     |
+ *          |                       |                       | -- -- -- -- -- -- -- -- > |[creating]
+ *          |                       |                       |                           |   *
+ *          |                       |                       |                           |[creating]
+ *          |                       |                       | <-- -- wrk::created -- -- |[empty]
+ *          |                       | <--- wrk::created --- |                           |   *
+ * <--- e-app::wrk-state[empty] --- |                       |                           |   *
+ *          |                       |                       |                           |   *
+ *      e-app:>fill-worker          |                       |                           |   *
+ *          |-----------------> fillWorker                  |                           |   *
+ *          |                       | -- wrk:>fill -------> |                           |   *
+ *          |                       |                   fillSubworker                   |[empty]
+ *          |                       |                       | -- -- -- -- -- -- -- -- > |[filling]
+ *          |                       |                       |                           |   *
+ *          |                       |                       |                           |[filling]
+ *          |                       |                       | < -- -- wrk::filled -- -- |[ready]
+ *          |                       | <--- wrk::filled ---- |                           |   *
+ * <--- e-app::wrk-state[ready] --- |                       |                           |   *
+ *          |                       |                       |                           |   *
+ *      e-app:>exec                 |                       |                           |   *
+ *          |--------------------> exec                     |                           |   *
+ *          |                       | -- wrk:>exec -------> |                           |   *
+ *          |                       |                      exec                         |[ready]
+ *          |                       |                       | -- -- -- -- -- -- -- -- > |[busy]
+ *          |                       |                       |                           |   *
+ *          |                       |                       |                           |[busy]
+ *          |                       |                       | <- -- -- wrk::done  -- -- |[dirty]
+ *          |                       | <--- wrk::done ------ |                           |   *
+ * <--- e-app::done --------------- |                       |                           |   *
+ *          |                       |                       |                           |[dirty]
  */
 
 const path = require('path');
@@ -14,18 +50,39 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const eAppLogger = require('./e-app-logger');
 
 const INTERNAL_WORKER_STATE = {
+    creating: 'creating',
     empty: 'empty',
-    loading: 'loading',
-    readyForFiller: 'readyForFiller',
     filling: 'filling',
     ready: 'ready',
     busy: 'busy',
     dirty: 'dirty',
-    unresponsive: 'unresponsive'
+};
+const INCOMING_COMMANDS = {
+    createWorker: 'e-app:>create-worker',
+    fillWorker: 'e-app:>fill-worker',
+    exec: 'e-app:>exec',
+    flush: 'e-app:>flush',
+    destroy: 'e-app:>destroy',
+};
+const INCOMING_WORKER_EVENTS = {
+    created: 'wrk::created',
+    filled: 'wrk::filled',
+    done: 'wrk::done',
+};
+// TODO: try single channel + different cmd types
+const OUTCOMING_WORKER_COMMANDS = {
+    init: 'wrk:>init',
+    fill: 'wrk:>fill',
+    exec: 'wrk:>exec',
+};
+const OUTCOMING_EVENTS = {
+    ready: 'e-app::ready',
+    workerState: 'e-app::wrk-state',
+    done: 'e-app::done',
 };
 
 const args = JSON.parse(process.argv[2]);
-const { warn, log } = eAppLogger(args.logs);
+const { error, perf, flush } = eAppLogger(args.logs);
 
 function destroy() {
     app.exit(0);
@@ -37,123 +94,102 @@ function buildSandUrl(sand) {
     return url.format({
         protocol: 'file',
         slashes: true,
-        pathname: path.join(__dirname, 'sand', `${sand}.html`)
+        pathname: path.join(__dirname, 'sand', `${sand}.html`),
     });
 }
 
-function loadSand(webContents) {
-    return webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
-}
-
-function sendWorkerStateChange(workerId, state, meta) {
-    process.send({
-        type: 'e-app::workerStateChange',
-        payload: { workerId, state, meta }
-    });
-}
-
-function createWorker() {
+function createWorker(options) {
     const win = new BrowserWindow(args.browserWindow);
     const webContents = win.webContents;
-    const workerId = win.id;
 
     if (args.showDevTools && args.browserWindow.show) {
         webContents.openDevTools();
     }
 
-    win.on('unresponsive', () => {
-        sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.unresponsive);
-    });
+    // TODO: handle unresponsive
+
     webContents.on('did-finish-load', () => {
-        sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.readyForFiller);
+        webContents.send(OUTCOMING_WORKER_COMMANDS.init, options);
     });
 
-    loadSand(webContents);
-    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.loading);
+    webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
 
     return win;
 }
 
-function reloadWorker({ workerId }) {
+function fillWorker({ path, filler, fillerId }) {
+    const workerId = path.shift();
     const win = BrowserWindow.fromId(workerId);
     const webContents = win.webContents;
 
-    loadSand(webContents);
-    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.loading);
+    webContents.send(OUTCOMING_WORKER_COMMANDS.fill, { path, fillerId, filler });
 }
 
-function fillWorker({ workerId, filler, fillerId }) {
-    const win = BrowserWindow.fromId(workerId);
-    const webContents = win.webContents;
+function exec(payload) {
+    // performance critical function; make it FTL;
+    const win = BrowserWindow.fromId(payload.path.shift());
 
-    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.filling);
-
-    webContents.send('e-app::fill', { type: 'worker::fill', payload: { filler, fillerId } });
-}
-
-function loadWorker(payload) {
-    const win = BrowserWindow.fromId(payload.workerId);
-    const webContents = win.webContents;
-
-    sendWorkerStateChange(payload.workerId, INTERNAL_WORKER_STATE.busy);
-
-    webContents.send('e-app::exec', { type: 'worker::exec', payload });
+    win.webContents.send(OUTCOMING_WORKER_COMMANDS.exec, payload);
 }
 
 process.on('message', ({ type, payload }) => {
-    log('onHostMessage type:', type);
+    perf('onHostMessage type:', type);
 
     switch (type) {
-        case 'e-app::createWorker':
-            return createWorker();
-        case 'e-app::fillWorker':
+        case INCOMING_COMMANDS.createWorker:
+            return createWorker(payload);
+        case INCOMING_COMMANDS.fillWorker:
             return fillWorker(payload);
-        case 'e-app::loadWorker':
-            return loadWorker(payload);
-        case 'e-app::reloadWorker':
-            return reloadWorker(payload);
-        case 'e-app::destroy':
+        case INCOMING_COMMANDS.exec:
+            return exec(payload);
+        case INCOMING_COMMANDS.flush:
+            return flush();
+        case INCOMING_COMMANDS.destroy:
             return destroy();
         default:
-            warn('unknown message');
+            error('unknown message:', type);
     }
 });
 
-ipcMain.on('e-app::exec', (event, message) => {
-    if (!message || message.error) {
-        warn('on job exec error', message);
-    }
+ipcMain
+    .on(INCOMING_WORKER_EVENTS.created, (event, message) => {
+        if (!message) {
+            return error(INCOMING_WORKER_EVENTS.created, 'no message');
+        }
 
-    if (message.type !== 'worker::solved') {
-        warn('on job exec error, unknown message type', message);
-    }
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const workerId = win.id;
+        const { path } = message;
 
-    process.send({
-        type: 'e-app::taskSolved',
-        payload: message.payload,
-        error: message.error,
+        process.send({
+            type: OUTCOMING_EVENTS.workerState,
+            payload: {
+                path: [workerId].concat(path),
+                state: INTERNAL_WORKER_STATE.empty,
+            },
+        });
+    })
+    .on(INCOMING_WORKER_EVENTS.filled, (event, message) => {
+        if (!message) {
+            return error(INCOMING_WORKER_EVENTS.filled, 'no message');
+        }
+
+        process.send({
+            type: OUTCOMING_EVENTS.workerState,
+            payload: message, // fillerId, etc
+        });
+    })
+    .on(INCOMING_WORKER_EVENTS.done, (event, message) => {
+        if (!message) {
+            return error(INCOMING_WORKER_EVENTS.done, 'no message');
+        }
+
+        process.send({
+            type: OUTCOMING_EVENTS.done,
+            payload: message,
+        });
     });
-    // now worker is INTERNAL_WORKER_STATE.dirty
-    // that should be handled by e-app::taskSolved handler
-});
-
-ipcMain.on('e-app::fill', (event, message) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const workerId = win.id;
-
-    if (!message || message.error) {
-        warn('on worker fill error', message);
-        return sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
-    }
-
-    if (message.type !== 'worker::filled') {
-        warn('on worker fill error, unknown message type', message);
-        return sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.dirty);
-    }
-
-    sendWorkerStateChange(workerId, INTERNAL_WORKER_STATE.ready, message.payload);
-});
 
 app.on('ready', () => {
-    process.send({ type: 'e-app::ready', payload: {} });
+    process.send({ type: OUTCOMING_EVENTS.ready, payload: {} });
 });

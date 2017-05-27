@@ -20,12 +20,29 @@ function conditionalLog(level, levels, ...args) {
     }
 }
 
+function perfLog(level, levels, buffer, ...args) {
+    if (levels[level]) {
+        buffer.push(args);
+    }
+}
+
+function flush(buffer) {
+    if (!buffer.length) {
+        return;
+    }
+
+    while (buffer.length) {
+        console.log(`[${Date.now()}] [e-app]`, ...buffer.shift());
+    }
+}
+
 module.exports = function eAppLogger(options) {
     const levels = parseOptions(options);
+    const perfBuffer = [];
 
     return {
-        log: conditionalLog.bind(null, 'log', levels),
-        warn: conditionalLog.bind(null, 'warn', levels),
+        perf: perfLog.bind(null, 'perf', levels, perfBuffer),
+        flush: flush.bind(null, perfBuffer),
         error: conditionalLog.bind(null, 'error', levels),
     };
 };

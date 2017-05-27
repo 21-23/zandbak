@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        (function() {
+            var ipcRenderer = require('electron').ipcRenderer;
+
+            ipcRenderer.on('wrk:>init', function (event, message) {
+                ipcRenderer.send('wrk::created', { path: [] });
+            });
+
+            ipcRenderer.on('wrk:>fill', function (event, message) {
+                message.filler = undefined; // no need to transfer back the filler
+                ipcRenderer.send('wrk::filled', message);
+            });
+
+            ipcRenderer.on('wrk:>exec', function (event, message) {
+                // the original message should be ready to accept 2 new props:
+                // - error
+                // - result
+                message.error = undefined;
+                message.result = {};
+                ipcRenderer.send('wrk::done', message);
+            });
+        })();
+    </script>
+</head>
+<body>
+</body>
+</html>

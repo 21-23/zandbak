@@ -2,8 +2,7 @@ const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
     zandbakOptions: {
-        workersCount: 5,
-        maxWorkersCount: 10,
+        workersCount: [10],
         logs: '-error,-warn,-log,+perf',
         validators: [
             { name: 'esprima' }
@@ -14,7 +13,7 @@ const sandbox = zandbak({
         browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
         sand: 'lodash', // sand = 'lodash' | 'css'
-        logs: '-error,-warn,-log',
+        logs: '-error,+perf',
     }
 });
 

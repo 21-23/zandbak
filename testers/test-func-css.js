@@ -2,8 +2,7 @@ const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
     zandbakOptions: {
-        workersCount: 2,
-        maxWorkersCount: 5,
+        workersCount: [5],
         logs: '+error,-warn,-log,+perf',
     },
     eAppOptions: {
@@ -11,7 +10,7 @@ const sandbox = zandbak({
         browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
         sand: 'css', // sand = 'lodash' | 'css'
-        logs: '+error,-warn,-log',
+        logs: '+error,+perf',
     }
 });
 

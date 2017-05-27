@@ -4,21 +4,19 @@ exports.JOB_STATE = {
     solved: 'solved', // potential state, should never happen
 };
 
-exports.JOB_RESOLUTION = {
-    success: 'success',
-    fail: 'fail',
-};
-
 exports.WORKER_STATE = {
-    preparing: 'preparing',
+    creating: 'creating',
+    empty: 'empty',
+    filling: 'filling',
     ready: 'ready',
-    inProgress: 'inProgress',
+    busy: 'busy',
+    dirty: 'dirty',
 };
 
 exports.createJob = function (jobId, fillerId, task, state, hrtime = process.hrtime()) {
     return {
         jobId,
-        workerId: null,
+        workerPath: null,
         fillerId,
         task,
         state,
@@ -27,9 +25,9 @@ exports.createJob = function (jobId, fillerId, task, state, hrtime = process.hrt
     };
 };
 
-exports.createWorkerInstance = function (workerId, state) {
+exports.createWorkerInstance = function (path, state) {
     return {
-        workerId,
+        path,
         state,
         hrtime: null
     };
@@ -43,12 +41,14 @@ exports.createFiller = function (fillerId, content, options) {
     };
 };
 
+exports.serializePath = function (path) {
+    return path.join('->');
+};
+
 exports.hrtimeToMs = function (hrtime) {
     return ((hrtime[0] * 1e9) + hrtime[1]) / 1e6;
 };
 
-exports.UNRESPONSIVE_WORKER_ERROR = 'unresponsive';
+exports.JOB_INT_ERROR = 'Interrupted';
 
-exports.JOB_INT_ERROR = 'interrupted';
-
-exports.JOB_TIMEOUT_ERROR = 'time out';
+exports.JOB_TIMEOUT_ERROR = 'Time out';

@@ -4,8 +4,11 @@ const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
     zandbakOptions: {
-        workersCount: [5, 10],
-        logs: '+error,-warn,-log,+perf',
+        workersCount: 5,
+        workerOptions: {
+            subworkersCount: 10,
+        },
+        logs: '+error,+perf',
         validators: [
             { name: 'esprima' }
         ],
@@ -21,11 +24,11 @@ const sandbox = zandbak({
 
 const rounds = [
     {
-        content: [
+        content: `[
             { name: 'Johnie', surname: 'Walker', age: 14 },
             { name: 'Johnie', surname: 'Walker', age: 20 },
             { name: 'Adam', surname: 'Smith', age: 99 },
-        ],
+        ]`,
         options: {
             reloadWorkers: false,
             refillWorkers: false,
@@ -33,10 +36,10 @@ const rounds = [
         }
     },
     {
-        content: {
+        content: `{
             state: 'DC',
             list: ['W', 'A', 'S', 'D']
-        },
+        }`,
         options: {
             reloadWorkers: false,
             refillWorkers: false,

@@ -22,6 +22,7 @@ function conditionalLog(level, levels, ...args) {
 
 function perfLog(level, levels, buffer, ...args) {
     if (levels[level]) {
+        args.unshift(Date.now());
         buffer.push(args);
     }
 }
@@ -32,7 +33,7 @@ function flush(buffer) {
     }
 
     while (buffer.length) {
-        console.log(`[${Date.now()}] [e-app]`, ...buffer.shift());
+        console.log('[e-app][perf]', ...buffer.shift());
     }
 }
 

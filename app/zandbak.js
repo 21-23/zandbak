@@ -5,15 +5,15 @@ const EventEmitter = require('events');
 const _uniqueid = require('lodash.uniqueid');
 const electron = require('electron');
 
-const logger = require('./logger');
+const createLogger = require('./logger');
 
-const { JOB_STATE, WORKER_STATE, UNRESPONSIVE_WORKER_ERROR, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, hrtimeToMs } = require('./helpers');
+const { JOB_STATE, WORKER_STATE, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, serializePath, hrtimeToMs } = require('./helpers');
 
 const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 const emptyFiller = createFiller('filler-empty', null, { reloadWorkers: true });
 
 
-function _createEAppProc(options) {
+function createEAppProc(options) {
     const child = proc.spawn(
         electron,
         [eAppPath].concat(JSON.stringify(options || {})),
@@ -25,7 +25,14 @@ function _createEAppProc(options) {
     return child;
 }
 
-function _createValidators(options) {
+function destroyEAppProc(eApp) {
+    eApp.removeAllListeners('message');
+
+    // potentially, we can rely on 'e-app::destroy' but who knows...
+    eApp.kill('SIGINT');
+}
+
+function createValidators(options) {
     const validators = [];
 
     if (!options) {
@@ -39,7 +46,7 @@ function _createValidators(options) {
     return validators;
 }
 
-function _destroyValidators(validators) {
+function destroyValidators(validators) {
     validators.forEach((validator) => {
         validator.destroy();
     });
@@ -47,384 +54,251 @@ function _destroyValidators(validators) {
 
 function validate(input, validators) {
     let error = null;
+    let counter = 0;
+    const validatorsCount = validators.length;
 
-    for (let i = 0; i < validators.length; i++) {
-        error = validators[i].validate(input);
+    while (counter < validatorsCount) {
+        error = validators[counter].validate(input);
 
         if (error) {
             // if there's an error from validator - break the loop and return the error
             break;
         }
+
+        counter++;
     }
 
     return error;
 }
 
-function _destroyEAppProc(eApp) {
-    eApp.removeAllListeners('message');
+// ====================== Jobs =========================
 
-    // potentially, we can rely on 'e-app::destroy' but who knows...
-    eApp.kill('SIGINT');
-}
-
-
-function createWorkers(workers, amount, eApp) {
-    let counter = 0;
-
-    while (++counter <= amount) {
-        eApp.send({
-            type: 'e-app::createWorker',
-        });
-    }
-}
-
-function getWorkerById(workers, workerId) {
-    return workers.get(workerId);
-}
-
-function createWorker(workers, workerId, state) {
-    const worker = createWorkerInstance(workerId, state);
-
-    workers.set(workerId, worker);
-
-    return worker;
-}
-
-function setWorkerState(workers, workerId, state) {
-    let worker = getWorkerById(workers, workerId);
-
-    if (!worker) {
-        worker = createWorker(workers, workerId, state);
-    } else {
-        worker.state = state;
-    }
-}
-
-function findReadyWorker(workers, log) {
-    let result = null;
-
-    if (workers.size === 0) {
-        log.warn('no workers at all');
-        return result;
-    }
-
-    for (const [, worker] of workers) {
-        if (worker.state === WORKER_STATE.ready) {
-            result = worker;
-            break;
-        }
-    }
-
-    return result;
-}
-
-function fillWorker(workers, workerId, filler, eApp) {
-    const worker = getWorkerById(workers, workerId);
-
-    worker.hrtime = process.hrtime();
-
-    eApp.send({
-        type: 'e-app::fillWorker',
-        payload: {
-            workerId,
-            fillerId: filler.fillerId,
-            filler: filler.content,
-        }
-    });
-}
-
-function reloadWorker(workers, workerId, eApp) {
-    const worker = getWorkerById(workers, workerId);
-
-    worker.hrtime = process.hrtime();
-
-    eApp.send({
-        type: 'e-app::reloadWorker',
-        payload: { workerId }
-    });
-}
-
-function resetWorkers(workers, eApp) {
-    workers.forEach((worker) => {
-        worker.state = WORKER_STATE.preparing;
-        reloadWorker(workers, worker.workerId, eApp);
-    });
-}
-
-function onWorkerReady(jobs, workers, workerId, workerMeta, filler, zandbakOptions, emitter, eApp, log) {
-    const worker = getWorkerById(workers, workerId);
-
-    if (worker && worker.hrtime) {
-        log.perf('worker', workerId, 'ready in', hrtimeToMs(process.hrtime(worker.hrtime)), 'ms');
-    }
-
-    if (workerMeta.fillerId !== filler.fillerId) {
-        log.warn('worker', workerId, 'ready with invalid filler', workerMeta.fillerId);
-        return fillWorker(workers, workerId, filler, eApp);
-    }
-
-    setWorkerState(workers, workerId, WORKER_STATE.ready);
-
-    tryExecuteJob(jobs, workers, filler, zandbakOptions, emitter, eApp, log);
-}
-
-function onWorkerDirty(workers, workerId, jobs, fillerId, withError, filler, zandbakOptions, emitter, eApp, log) {
-    const invalidFiller = fillerId !== filler.fillerId;
-
-    if (filler.options.reloadWorkers || invalidFiller) {
-        if (invalidFiller) {
-            log.warn('worker', workerId, 'dirty with invalid filler', fillerId, 'currrent:', filler.fillerId);
-        }
-
-        return reloadWorker(workers, workerId, eApp);
-    } else if (filler.options.refillWorkers) {
-        return fillWorker(workers, workerId, filler, eApp);
-    }
-
-    // it is possible that we do not want to do anything with a dirty worker
-    // it is ready to take another task
-    setWorkerState(workers, workerId, WORKER_STATE.ready);
-    tryExecuteJob(jobs, workers, filler, zandbakOptions, emitter, eApp, log);
-}
-
-function onWorkerUnresponsive(workers, workerId, jobs, emitter, eApp, log) {
-    let job = findJobByWorkerId(jobs, workerId);
-
-    if (job) {
-        job = cleanupJob(jobs, job.jobId);
-
-        if (job) {
-            notifyTaskSolve(job.task, UNRESPONSIVE_WORKER_ERROR, null, emitter, job.hrtime, log);
-        } else {
-            log.warn('invalid job is unresponsive', job.jobId);
-        }
-    } else {
-        log.warn('worker', workerId, 'is unresponsive w/o any assigned job');
-    }
-
-    reloadWorker(workers, workerId, eApp);
-}
-
-function createInitialWorkers(workers, zandbakOptions, eApp) {
-    return createWorkers(workers, zandbakOptions.workersCount, eApp);
-}
-
-function handleWorkerStateChange(payload, workers, jobs, filler, zandbakOptions, emitter, eApp, log) {
-    const { workerId, state, meta } = payload;
-
-    log.log('worker', workerId, 'is', state);
-
-    switch (state) {
-        case 'empty':
-            return;
-        case 'loading':
-            return setWorkerState(workers, workerId, WORKER_STATE.preparing);
-        case 'readyForFiller':
-            return fillWorker(workers, workerId, filler, eApp);
-        case 'filling':
-            return;
-        case 'ready':
-            return onWorkerReady(jobs, workers, workerId, meta, filler, zandbakOptions, emitter, eApp, log);
-        case 'busy':
-            return;
-        case 'dirty':
-            return;
-        case 'unresponsive':
-            return onWorkerUnresponsive(workers, workerId, jobs, emitter, eApp, log);
-        default:
-            return log.warn('unknown worker state', workerId, state);
-    }
-}
-
-function notifyTaskSolve(task, error, result, emitter, jobHrtime, log) {
-    if (jobHrtime) {
-        log.perf('task', task, 'resolved in', hrtimeToMs(process.hrtime(jobHrtime)), 'ms');
-    }
-    emitter.emit('solved', task, error, result);
-}
-
-function interruptJobs(jobs, emitter, log) {
-    jobs.forEach((job) => {
-        clearTimeout(job.timerId);
-        notifyTaskSolve(job.task, JOB_INT_ERROR, null, emitter, job.hrtime, log);
-    });
-    jobs.clear();
-}
-
-function findPendingJob(jobs) {
-    let result = null;
-
-    if (jobs.size === 0) {
-        return result;
-    }
-
-    for (const [, job] of jobs) {
-        if (job.state === JOB_STATE.pending) {
-            result = job;
-            break;
-        }
-    }
-
-    return result;
-}
-
-function findJobByWorkerId(jobs, workerId) {
-    let result = null;
-
-    if (jobs.size === 0) {
-        return result;
-    }
-
-    for (const [, job] of jobs) {
-        if (job.workerId && job.workerId === workerId) {
-            result = job;
-            break;
-        }
-    }
-
-    return result;
-}
-
-function cleanupJob(jobs, jobId) {
-    const job = jobs.get(jobId);
-
-    if (!job) {
-        return false;
-    }
-
-    clearTimeout(job.timerId);
-    jobs.delete(jobId);
-
-    return job;
-}
-
-function handleSolvedTask(error, payload, jobs, workers, filler, zandbakOptions, emitter, eApp, log) {
-    const { task, jobId, workerId, fillerId } = payload;
-
-    const job = cleanupJob(jobs, jobId);
-
-    if (job) {
-        if (error) {
-            notifyTaskSolve(task, error, null, emitter, job.hrtime, log);
-        } else {
-            notifyTaskSolve(task, null, payload.result, emitter, job.hrtime, log);
-        }
-    } else {
-        log.warn('invalid job solved', jobId);
-    }
-
-    onWorkerDirty(workers, workerId, jobs, fillerId, !!error, filler, zandbakOptions, emitter, eApp, log);
-}
-
-function handleTimeoutedTask(task, jobId, workerId, jobs, workers, emitter, eApp, log) {
-    const job = cleanupJob(jobs, jobId);
-
-    if (job) {
-        notifyTaskSolve(task, JOB_TIMEOUT_ERROR, null, emitter, job.hrtime, log);
-    } else {
-        log.warn('invalid job timeouted', jobId);
-    }
-
-    // TODO: kill worker here as simple reload may not help (e.g. while(true) { alert(1); })
-    reloadWorker(workers, workerId, eApp);
-}
-
-function _resetWith(filler, jobs, workers, emitter, eApp, log) {
-    interruptJobs(jobs, emitter, log);
-
-    resetWorkers(workers, eApp);
-}
-
-function _exec(task, jobs, workers, validators, filler, zandbakOptions, emitter, eApp, log) {
-    const hrtime = process.hrtime();
-    const validationError = validate(task.input, validators);
-
-    if (validationError) {
-        return notifyTaskSolve(task, validationError, null, emitter, hrtime, log);
-    }
-
-    const job = createJob(_uniqueid('job-'), filler.fillerId, task, JOB_STATE.pending, hrtime);
-
-    jobs.set(job.jobId, job);
-
-    tryExecuteJob(jobs, workers, filler, zandbakOptions, emitter, eApp, log);
-}
-
-function executeJob(job, worker, jobs, workers, filler, emitter, eApp, log) {
-    job.workerId = worker.workerId;
+function executeJob(job, worker, jobs, filler, emitter, eApp, logger) {
+    job.workerPath = worker.path;
     job.state = JOB_STATE.inProgress;
 
     if (filler.options.taskTimeoutMs) {
         job.timerId = setTimeout(() => {
-            handleTimeoutedTask(job.task, job.jobId, job.workerId, jobs, workers, emitter, eApp, log);
+            onJobTimeout(job, worker, jobs, emitter, eApp);
         }, filler.options.taskTimeoutMs);
     }
 
-    worker.state = WORKER_STATE.inProgress;
+    logger.perf('Task waiting time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
 
+    worker.state = WORKER_STATE.busy;
     eApp.send({
-        type: 'e-app::loadWorker',
+        type: 'e-app:>exec',
         payload: {
-            workerId: worker.workerId,
+            path: worker.path,
             jobId: job.jobId,
             fillerId: filler.fillerId,
             task: job.task,
+            // error: undefined     <-- ninja property filled by sand
+            // result: {}           <-- ninja property filled by sand
         }
     });
 }
 
-function tryExecuteJob(jobs, workers, filler, zandbakOptions, emitter, eApp, log) {
-    const job = findPendingJob(jobs);
-
-    if (!job) {
-        return log.log('No pending jobs');
+function tryExecuteJob(jobs, workers, preferredWorker, filler, emitter, eApp, logger) {
+    if (jobs.size === 0) {
+        return;
     }
 
-    const worker = findReadyWorker(workers, log);
+    let pendingJob = null;
 
-    if (!worker) {
-        log.log('No ready workers');
-
-        if (workers.size > 0 && workers.size < zandbakOptions.maxWorkersCount) {
-            // at least 1 worker was created => e-app is ready to create more
-            log.log('Create additional worker');
-            return createWorkers(workers, 1, eApp);
+    for (const [, job] of jobs) {
+        if (job.state === JOB_STATE.pending) {
+            pendingJob = job;
+            break;
         }
-
-        return log.log('No additional workers');
     }
 
-    executeJob(job, worker, jobs, workers, filler, emitter, eApp, log);
+    if (!pendingJob) {
+        return;
+    }
+
+    let readyWorker = preferredWorker;
+
+    if (!readyWorker) {
+        if (workers.size === 0) {
+            return;
+        }
+        for (const [, worker] of workers) {
+            if (worker.state === WORKER_STATE.ready) {
+                readyWorker = worker;
+                break;
+            }
+        }
+    }
+
+    if (!readyWorker) {
+        return;
+    }
+
+    executeJob(pendingJob, readyWorker, jobs, filler, emitter, eApp, logger);
 }
 
-function _handleEAppMessage(message, jobs, workers, filler, zandbakOptions, emitter, eApp, log) {
-    const { type, payload, error } = message;
+// ====================== Workers ======================
 
-    switch (type) {
-        case 'e-app::ready':
-            return createInitialWorkers(workers, zandbakOptions, eApp);
-        case 'e-app::workerStateChange':
-            return handleWorkerStateChange(payload, workers, jobs, filler, zandbakOptions, emitter, eApp, log);
-        case 'e-app::taskSolved':
-            return handleSolvedTask(error, payload, jobs, workers, filler, zandbakOptions, emitter, eApp, log);
-        default:
-            return log.warn('Unknown message from e-app');
+function createWorkers(options, amount, eApp) {
+    let counter = 0;
+
+    while (++counter <= amount) {
+        eApp.send({
+            type: 'e-app:>create-worker',
+            payload: options,
+        });
     }
+}
+
+function getWorker(workers, path) {
+    return workers.get(serializePath(path));
+}
+
+function setWorker(workers, worker) {
+    workers.set(serializePath(worker.path), worker);
+}
+
+function onWorkerEmpty(path, workers, filler, eApp) {
+    let worker = getWorker(workers, path);
+
+    if (!worker) {
+        worker = createWorkerInstance(path, WORKER_STATE.empty);
+        setWorker(workers, worker);
+    }
+
+    worker.state = WORKER_STATE.filling;
+    eApp.send({
+        type: 'e-app:>fill-worker',
+        payload: {
+            path,
+            content: filler.content,
+            fillerId: filler.fillerId,
+        }
+    });
+}
+
+function onWorkerReady(path, workerFillerId, workers, jobs, filler, emitter, eApp, logger) {
+    const worker = getWorker(workers, path);
+
+    if (workerFillerId !== filler.fillerId) {
+        worker.state = WORKER_STATE.filling;
+        return eApp.send({
+            type: 'e-app:>fill-worker',
+            payload: {
+                path,
+                content: filler.content,
+                fillerId: filler.fillerId,
+            }
+        });
+    }
+
+    worker.state = WORKER_STATE.ready;
+    tryExecuteJob(jobs, workers, worker, filler, emitter, eApp, logger);
+}
+
+function onWorkerStateChange(payload, workers, jobs, filler, emitter, eApp, logger) {
+    switch (payload.state) {
+        case WORKER_STATE.empty:
+            return onWorkerEmpty(payload.path, workers, filler, eApp);
+        case WORKER_STATE.ready:
+            return onWorkerReady(payload.path, payload.fillerId, workers, jobs, filler, emitter, eApp, logger);
+        default:
+            return logger.error('Invalid worker state', payload.state);
+    }
+}
+
+// ====================== Job handling ======================
+
+function onJobDone(payload, workers, jobs, filler, emitter, eApp, logger) {
+    emitter.emit('solved', payload.task, payload.error, payload.result);
+
+    const job = jobs.get(payload.jobId);
+    const worker = getWorker(workers, payload.path);
+    const invalidFiller = payload.fillerId !== filler.fillerId;
+
+    clearTimeout(job.timerId);
+    jobs.delete(job.jobId);
+
+    logger.perf('Task full time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
+
+    if (filler.options.reloadWorkers) {
+        worker.state = WORKER_STATE.creating;
+        return eApp.send({
+            type: 'e-app:>reload-worker',
+            payload: {
+                path: worker.path,
+            }
+        });
+    }
+
+    if (invalidFiller || filler.options.refillWorkers) {
+        worker.state = WORKER_STATE.filling;
+        return eApp.send({
+            type: 'e-app:>fill-worker',
+            payload: {
+                path: worker.path,
+                content: filler.content,
+                fillerId: filler.fillerId,
+            }
+        });
+    }
+
+    // if there is no need to clean up worker (neither reload nor refill)
+    // use it immediately
+    worker.state = WORKER_STATE.ready;
+    tryExecuteJob(jobs, workers, worker, filler, emitter, eApp, logger);
+}
+
+function onJobTimeout(job, worker, jobs, emitter, eApp) {
+    emitter.emit('solved', job.task, JOB_TIMEOUT_ERROR, null);
+
+    clearTimeout(job.timerId);
+    jobs.delete(job.jobId);
+
+    worker.state = WORKER_STATE.creating;
+    eApp.send({
+        type: 'e-app:>reload-worker',
+        payload: {
+            path: worker.path,
+        }
+    });
+}
+
+// ====================== Zandbak state handling ======================
+
+function resetWith(jobs, workers, emitter, eApp) {
+    jobs.forEach((job) => {
+        emitter.emit('solved', job.task, JOB_INT_ERROR, null);
+
+        clearTimeout(job.timerId);
+    });
+    jobs.clear();
+
+    workers.forEach((worker) => {
+        worker.state = WORKER_STATE.creating;
+        eApp.send({
+            type: 'e-app:>reload-worker',
+            payload: {
+                path: worker.path,
+            }
+        });
+    });
 }
 
 module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
     const emitter = new EventEmitter();
-    const log = logger('[zandbak]', zandbakOptions.logs);
+    const logger = createLogger(zandbakOptions.logs);
     const jobs = new Map();
     const workers = new Map();
     let filler = emptyFiller;
 
-    let eApp = _createEAppProc(eAppOptions);
-    let validators = _createValidators(zandbakOptions.validators);
+    let eApp = createEAppProc(eAppOptions);
+    let validators = createValidators(zandbakOptions.validators);
 
     const instance = {
         resetWith: (newFiller) => {
-            log.flush();
+            logger.flush();
 
             if (newFiller) {
                 filler = createFiller(_uniqueid('filler-'), newFiller.content, newFiller.options);
@@ -432,22 +306,37 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
                 filler = emptyFiller;
             }
 
-            _resetWith(filler, jobs, workers, emitter, eApp, log);
+            resetWith(jobs, workers, emitter, eApp);
 
             return instance;
         },
         exec: (task) => {
-            _exec(task, jobs, workers, validators, filler, zandbakOptions, emitter, eApp, log);
+            const validationError = validate(task.input, validators);
+
+            if (validationError) {
+                emitter.emit('solved', task, validationError, null);
+                logger.perf('Task validation error');
+
+                return instance;
+            }
+
+            const job = createJob(_uniqueid('job-'), filler.fillerId, task, JOB_STATE.pending);
+
+            jobs.set(job.jobId, job);
+
+            tryExecuteJob(jobs, workers, null, filler, emitter, eApp, logger);
 
             return instance;
         },
         destroy: () => {
+            logger.flush();
+
             if (eApp) {
-                _destroyEAppProc(eApp);
+                destroyEAppProc(eApp);
                 eApp = null;
             }
             if (validators) {
-                _destroyValidators(validators);
+                destroyValidators(validators);
                 validators = null;
             }
         },
@@ -469,17 +358,25 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
     };
 
     eApp.on('message', (message) => {
-        log.log('eAppMessage message:', message);
-        _handleEAppMessage(message, jobs, workers, filler, zandbakOptions, emitter, eApp, log);
+        switch (message.type) {
+            case 'e-app::ready':
+                return createWorkers(zandbakOptions.workerOptions, zandbakOptions.workersCount, eApp);
+            case 'e-app::wrk-state':
+                return onWorkerStateChange(message.payload, workers, jobs, filler, emitter, eApp, logger);
+            case 'e-app::done':
+                return onJobDone(message.payload, workers, jobs, filler, emitter, eApp, logger);
+            default:
+                logger.error('Unknown message from e-app', message);
+        }
     });
 
-    eApp.on('error', (err) => {
-        log.error('Error in electron app', err);
-        emitter.emit('error', err);
+    eApp.on('error', (error) => {
+        logger.error('Error in electron app', error);
+        emitter.emit('error', error);
     });
 
-    process.on('uncaughtException', (e) => {
-        log.error('uncaughtException:', e);
+    process.on('uncaughtException', (error) => {
+        logger.error('uncaughtException:', error);
         instance.destroy();
     });
 

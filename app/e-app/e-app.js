@@ -40,6 +40,23 @@
  *          |                       | <--- wrk::done ------ |                           |   *
  * <--- e-app::done --------------- |                       |                           |   *
  *          |                       |                       |                           |[dirty]
+ *
+ *
+ *
+ * # Worker reload:
+ *
+ *      e-app:>reload-worker        |                       |                           |   *
+ *          |----------------> reloadWorker                 |                           |   *
+ *          |                       |---------------------> |                           |   *
+ *          |                       |           OR          |                           |   *
+ *          |                       | -- wrk:>reload -----> |                           |   *
+ *          |                       |                     reload                        |   *
+ *          |                       |                       | -- -- -- -- -- -- -- -- > |[creating]
+ *          |                       |                       |                           |   *
+ *          |                       |                       |                           |[creating]
+ *          |                       |                       | <-- -- wrk::created -- -- |[empty]
+ *          |                       | <--- wrk::created --- |                           |   *
+ * <--- e-app::wrk-state[empty] --- |                       |                           |   *
  */
 
 const path = require('path');
@@ -60,6 +77,7 @@ const INTERNAL_WORKER_STATE = {
 const INCOMING_COMMANDS = {
     createWorker: 'e-app:>create-worker',
     fillWorker: 'e-app:>fill-worker',
+    reloadWorker: 'e-app:>reload-worker',
     exec: 'e-app:>exec',
     flush: 'e-app:>flush',
     destroy: 'e-app:>destroy',
@@ -74,6 +92,7 @@ const OUTCOMING_WORKER_COMMANDS = {
     init: 'wrk:>init',
     fill: 'wrk:>fill',
     exec: 'wrk:>exec',
+    reload: 'wrk:>reload',
 };
 const OUTCOMING_EVENTS = {
     ready: 'e-app::ready',
@@ -117,12 +136,16 @@ function createWorker(options) {
     return win;
 }
 
-function fillWorker({ path, filler, fillerId }) {
+function fillWorker({ path, content, fillerId }) {
     const workerId = path.shift();
     const win = BrowserWindow.fromId(workerId);
     const webContents = win.webContents;
 
-    webContents.send(OUTCOMING_WORKER_COMMANDS.fill, { path, fillerId, filler });
+    webContents.send(OUTCOMING_WORKER_COMMANDS.fill, { path, fillerId, content });
+}
+
+function reloadWorker() {
+    // TODO
 }
 
 function exec(payload) {
@@ -140,6 +163,8 @@ process.on('message', ({ type, payload }) => {
             return createWorker(payload);
         case INCOMING_COMMANDS.fillWorker:
             return fillWorker(payload);
+        case INCOMING_COMMANDS.reloadWorker:
+            return reloadWorker(payload);
         case INCOMING_COMMANDS.exec:
             return exec(payload);
         case INCOMING_COMMANDS.flush:
@@ -164,8 +189,8 @@ ipcMain
         process.send({
             type: OUTCOMING_EVENTS.workerState,
             payload: {
-                path: [workerId].concat(path),
                 state: INTERNAL_WORKER_STATE.empty,
+                path: [workerId].concat(path),
             },
         });
     })
@@ -176,7 +201,11 @@ ipcMain
 
         process.send({
             type: OUTCOMING_EVENTS.workerState,
-            payload: message, // fillerId, etc
+            payload: {
+                state: INTERNAL_WORKER_STATE.ready,
+                path: message.path,
+                fillerId: message.fillerId,
+            }
         });
     })
     .on(INCOMING_WORKER_EVENTS.done, (event, message) => {

@@ -14,34 +14,36 @@ function parseOptions(options) {
     }, {});
 }
 
-function actualLog(level, args) {
-    console[level](...args);
-}
-
-function conditionalLog(level, levels, prefix, ...args) {
+function conditionalLog(level, levels, ...args) {
     if (levels[level]) {
-        args.unshift(`[${Date.now()}]`, prefix);
-        actualLog(level, args);
+        console.log(`[${Date.now()}] [zandbak]`, ...args);
     }
 }
 
-module.exports = function logger(prefix, options) {
+function perfLog(level, levels, buffer, ...args) {
+    if (levels[level]) {
+        args.unshift(Date.now());
+        buffer.push(args);
+    }
+}
+
+function flush(buffer) {
+    if (!buffer.length) {
+        return;
+    }
+
+    while (buffer.length) {
+        console.log('[zandbak][perf]', ...buffer.shift());
+    }
+}
+
+module.exports = function logger(options) {
     const levels = parseOptions(options);
-    const perfLogsStore = [];
+    const perfBuffer = [];
 
     return {
-        log: conditionalLog.bind(null, 'log', levels, prefix),
-        warn: conditionalLog.bind(null, 'warn', levels, prefix),
-        error: conditionalLog.bind(null, 'error', levels, prefix),
-        perf: (...args) => {
-            if (levels['perf']) {
-                args.unshift(`[${Date.now()}]`, prefix);
-                perfLogsStore.push(args);
-            }
-        },
-        flush: () => {
-            perfLogsStore.forEach(actualLog.bind(null, 'log'));
-            perfLogsStore.length = 0;
-        }
+        perf: perfLog.bind(null, 'perf', levels, perfBuffer),
+        flush: flush.bind(null, perfBuffer),
+        error: conditionalLog.bind(null, 'error', levels),
     };
 };

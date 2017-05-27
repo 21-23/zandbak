@@ -22,6 +22,10 @@
                 message.result = {};
                 ipcRenderer.send('wrk::done', message);
             });
+
+            ipcRenderer.on('wrk:>reload', function (event, message) {
+                ipcRenderer.send('wrk::created', { path: [] });
+            });
         })();
     </script>
 </head>

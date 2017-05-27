@@ -10,13 +10,13 @@ const sandbox = zandbak({
     zandbakOptions: {
         workersCount: 2,
         maxWorkersCount: 5,
-        logs: '+error,-warn,-log,+perf',
+        logs: '+error,+perf',
     },
     eAppOptions: {
         showDevTools: false,
         browserWindow: { show: false },
         sand: 'lodash',
-        logs: '+error,-warn,-log',
+        logs: '-error,+perf',
     }
 });
 
@@ -32,7 +32,7 @@ const filler = {
         options: {
             reloadWorkers: false,
             refillWorkers: false,
-            taskTimeoutMs: 500,
+            taskTimeoutMs: 1500, // should be reasonably big (seconds) as time out forces worker reload (too expensive)
         }
     };
 const task = { id: 'task-0', input: 'map(() => { return null; })' }

@@ -7,6 +7,7 @@
     "start": "",
     "test:unit": "",
     "test:func:lodash": "node ./testers/test-func-lodash.js",
+    "test:func:lodash:sw": "node --inspect --debug-brk ./testers/test-func-lodash-sw.js",
     "test:func:css": "node ./testers/test-func-css.js",
     "test:perf:lodash": "node ./testers/test-perf-lodash.js",
     "test:perf:css": "node ./testers/test-perf-css.js",

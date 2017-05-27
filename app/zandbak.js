@@ -217,10 +217,12 @@ function onJobDone(payload, workers, jobs, filler, emitter, eApp, logger) {
     const worker = getWorker(workers, payload.path);
     const invalidFiller = payload.fillerId !== filler.fillerId;
 
-    clearTimeout(job.timerId);
-    jobs.delete(job.jobId);
-
-    logger.perf('Task full time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
+    if (job) {
+        // job may not exist if it was interrupted (e.g. by time out or resetWith) in the middle of execution
+        clearTimeout(job.timerId);
+        jobs.delete(job.jobId);
+        logger.perf('Task full time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
+    }
 
     if (filler.options.reloadWorkers) {
         worker.state = WORKER_STATE.creating;

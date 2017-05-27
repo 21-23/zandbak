@@ -5,49 +5,38 @@
         (function() {
             var ipcRenderer = require('electron').ipcRenderer;
 
-            function send(channel, result) {
-                return ipcRenderer.send(channel, result);
-            }
-
-            function exec(messagePayload, done) {
+            function exec(task) {
                 try {
-                    var result = document.querySelectorAll(messagePayload.task.input);
-                    messagePayload.result = result;
-                    done('e-app::exec', { type: 'worker::solved', payload: messagePayload });
+                    var result = document.querySelectorAll(task.input);
+
+                    return [result];
                 } catch (e) {
-                    done('e-app::exec', { type: 'worker::solved', payload: messagePayload, error: e });
+                    return [null, e];
                 }
             }
 
-            function fill(payload, done) {
-                document.body.innerHTML = payload.filler;
-                payload.filler = undefined;
-
-                done('e-app::fill', { type: 'worker::filled', payload: payload });
-            }
-
-            ipcRenderer.on('e-app::exec', function (event, message) {
-                if (!message) {
-                    return send('e-app::exec', { type: 'worker::solved', payload: message, error: 'empty message' });
-                }
-
-                if (message.type !== 'worker::exec') {
-                    return send('e-app::exec', { type: 'worker::solved', payload: message, error: 'unknown message type' });
-                }
-
-                exec(message.payload, send);
+            ipcRenderer.on('wrk:>init', function (event, message) {
+                ipcRenderer.send('wrk::created', { path: [] });
             });
 
-            ipcRenderer.on('e-app::fill', function (event, message) {
-                if (!message) {
-                    return send('e-app::fill', { type: 'worker::filled', payload: message, error: 'empty message' });
+            ipcRenderer.on('wrk:>fill', function (event, message) {
+                document.body.innerHTML = message.content;
+                message.content = undefined; // no need to transfer back the filler
+
+                ipcRenderer.send('wrk::filled', message);
+            });
+
+            ipcRenderer.on('wrk:>exec', function (event, message) {
+                var result = exec(message.task);
+
+                if (result.length === 1) {
+                    message.result = result[0];
+                } else {
+                    var e = result[1];
+                    message.error = (e && e.message || (e + ''));
                 }
 
-                if (message.type !== 'worker::fill') {
-                    return send('e-app::fill', { type: 'worker::filled', payload: message, error: 'unknown message type' });
-                }
-
-                fill(message.payload, send);
+                ipcRenderer.send('wrk::done', message);
             });
         })();
     </script>

@@ -2,8 +2,8 @@ const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
     zandbakOptions: {
-        workersCount: [5],
-        logs: '+error,-warn,-log,+perf',
+        workersCount: 5,
+        logs: '+error,+perf',
     },
     eAppOptions: {
         showDevTools: false,

@@ -79,7 +79,7 @@ function executeJob(job, worker, jobs, filler, emitter, eApp, logger) {
 
     if (filler.options.taskTimeoutMs) {
         job.timerId = setTimeout(() => {
-            onJobTimeout(job, worker, jobs, emitter, eApp);
+            onJobTimeout(job, worker, jobs, emitter, eApp, logger);
         }, filler.options.taskTimeoutMs);
     }
 
@@ -250,11 +250,13 @@ function onJobDone(payload, workers, jobs, filler, emitter, eApp, logger) {
     tryExecuteJob(jobs, workers, worker, filler, emitter, eApp, logger);
 }
 
-function onJobTimeout(job, worker, jobs, emitter, eApp) {
-    emitter.emit('solved', job.task, JOB_TIMEOUT_ERROR, null);
+function onJobTimeout(job, worker, jobs, emitter, eApp, logger) {
+    emitter.emit('solved', job.task, JOB_TIMEOUT_ERROR);
 
     clearTimeout(job.timerId);
     jobs.delete(job.jobId);
+
+    logger.perf('Task full time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
 
     worker.state = WORKER_STATE.creating;
     eApp.send({
@@ -267,9 +269,11 @@ function onJobTimeout(job, worker, jobs, emitter, eApp) {
 
 // ====================== Zandbak state handling ======================
 
-function resetWith(jobs, workers, emitter, eApp) {
+function resetWith(jobs, workers, emitter, eApp, logger) {
     jobs.forEach((job) => {
-        emitter.emit('solved', job.task, JOB_INT_ERROR, null);
+        emitter.emit('solved', job.task, JOB_INT_ERROR);
+
+        logger.perf('Task full time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
 
         clearTimeout(job.timerId);
     });
@@ -298,15 +302,15 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
 
     const instance = {
         resetWith: (newFiller) => {
-            logger.flush();
-
             if (newFiller) {
                 filler = createFiller(_uniqueid('filler-'), newFiller.content, newFiller.options);
             } else {
                 filler = emptyFiller;
             }
 
-            resetWith(jobs, workers, emitter, eApp);
+            resetWith(jobs, workers, emitter, eApp, logger);
+
+            logger.flush();
 
             return instance;
         },
@@ -314,7 +318,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
             const validationError = validate(task.input, validators);
 
             if (validationError) {
-                emitter.emit('solved', task, validationError, null);
+                emitter.emit('solved', task, validationError);
                 logger.perf('Task validation error');
 
                 return instance;

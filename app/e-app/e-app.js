@@ -125,15 +125,11 @@ function createWorker(options) {
         webContents.openDevTools();
     }
 
-    // TODO: handle unresponsive
-
     webContents.on('did-finish-load', () => {
         webContents.send(OUTCOMING_WORKER_COMMANDS.init, options);
     });
 
     webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
-
-    return win;
 }
 
 function fillWorker({ path, content, fillerId }) {
@@ -144,8 +140,18 @@ function fillWorker({ path, content, fillerId }) {
     webContents.send(OUTCOMING_WORKER_COMMANDS.fill, { path, fillerId, content });
 }
 
-function reloadWorker() {
-    // TODO
+function reloadWorker({ path }) {
+    const workerId = path.shift();
+    const win = BrowserWindow.fromId(workerId);
+    const webContents = win.webContents;
+
+    if (path.length !== 0) {
+        // path is not empty => subworkers are used => it is up to subworkers
+        //      to decide how to reload their subworkers
+        return webContents.send(OUTCOMING_WORKER_COMMANDS.reload, { path });
+    }
+
+    webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
 }
 
 function exec(payload) {
@@ -184,13 +190,12 @@ ipcMain
 
         const win = BrowserWindow.fromWebContents(event.sender);
         const workerId = win.id;
-        const { path } = message;
 
         process.send({
             type: OUTCOMING_EVENTS.workerState,
             payload: {
                 state: INTERNAL_WORKER_STATE.empty,
-                path: [workerId].concat(path),
+                path: [workerId].concat(message.path),
             },
         });
     })
@@ -199,11 +204,14 @@ ipcMain
             return error(INCOMING_WORKER_EVENTS.filled, 'no message');
         }
 
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const workerId = win.id;
+
         process.send({
             type: OUTCOMING_EVENTS.workerState,
             payload: {
                 state: INTERNAL_WORKER_STATE.ready,
-                path: message.path,
+                path: [workerId].concat(message.path),
                 fillerId: message.fillerId,
             }
         });
@@ -212,6 +220,11 @@ ipcMain
         if (!message) {
             return error(INCOMING_WORKER_EVENTS.done, 'no message');
         }
+
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const workerId = win.id;
+
+        message.path = [workerId].concat(message.path);
 
         process.send({
             type: OUTCOMING_EVENTS.done,

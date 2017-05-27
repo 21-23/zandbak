@@ -4,8 +4,9 @@ const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
     zandbakOptions: {
-        workersCount: [5],
-        logs: '+error,-warn,-log,+perf',
+        workersCount: 2,
+        workerOptions: {},
+        logs: '+error,+perf',
         validators: [
             { name: 'esprima' }
         ],
@@ -29,7 +30,7 @@ const rounds = [
         options: {
             reloadWorkers: false,
             refillWorkers: false,
-            taskTimeoutMs: 500,
+            taskTimeoutMs: 1500,
         }
     },
     {
@@ -40,7 +41,7 @@ const rounds = [
         options: {
             reloadWorkers: false,
             refillWorkers: false,
-            taskTimeoutMs: 500,
+            taskTimeoutMs: 1500,
         }
     }
 ];
@@ -86,7 +87,7 @@ setTimeout(() => {
 }, 1000);
 setTimeout(() => {
     sandbox
-        .exec({ id: 'task-3', input: 'map((a) => a.surname)' }) // interrupted error
+        .exec({ id: 'task-3', input: 'map((a) => { while(1) {} })' }) // interrupted error
         .resetWith(rounds[1]);
 }, 3000);
 setTimeout(() => {

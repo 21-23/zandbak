@@ -2,8 +2,8 @@ const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
     zandbakOptions: {
-        workersCount: [10],
-        logs: '-error,-warn,-log,+perf',
+        workersCount: 10,
+        logs: '-error,+perf',
         validators: [
             { name: 'esprima' }
         ],

@@ -10,7 +10,7 @@
             });
 
             ipcRenderer.on('wrk:>fill', function (event, message) {
-                message.filler = undefined; // no need to transfer back the filler
+                message.content = undefined; // no need to transfer back the filler
                 ipcRenderer.send('wrk::filled', message);
             });
 

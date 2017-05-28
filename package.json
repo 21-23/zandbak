@@ -1,6 +1,6 @@
 {
   "name": "zandbak",
-  "version": "3.0.0-alpha",
+  "version": "3.0.1-alpha",
   "description": "JS/HTML sandbox",
   "main": "app/zandbak.js",
   "scripts": {

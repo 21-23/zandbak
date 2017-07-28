@@ -10,6 +10,7 @@
     "test:func:lodash:sw": "node ./testers/test-func-lodash-sw.js",
     "test:func:css": "node ./testers/test-func-css.js",
     "test:perf:lodash": "node ./testers/test-perf-lodash.js",
+    "test:comparator": "node ./testers/test-comparator.js",
     "lint": "eslint ./app",
     "precommit": "lint-staged"
   },
@@ -30,6 +31,7 @@
     "eslint-config-airbnb-base": "^11.0.0",
     "eslint-plugin-import": "^2.2.0",
     "husky": "^0.12.0",
-    "lint-staged": "^3.2.5"
+    "lint-staged": "^3.2.5",
+    "lodash.isequal": "^4.5.0"
   }
 }

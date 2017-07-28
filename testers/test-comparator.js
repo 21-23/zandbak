@@ -72,6 +72,7 @@ const testData = [
     [null, null, true],
     [null, NaN, false],
     [NaN, NaN, true],
+    [0, -0, true],
     [false, false, true],
     [false, null, false],
     [undefined, false, false],

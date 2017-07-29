@@ -5,15 +5,17 @@ const zandbak = require('../app/zandbak');
 const sandbox = zandbak({
     zandbakOptions: {
         workersCount: 2,
-        workerOptions: {},
+        workerOptions: {
+            subworkersCount: 0,
+        },
         logs: '+error,+perf',
         validators: [
             { name: 'esprima' }
         ],
     },
     eAppOptions: {
-        showDevTools: false,
-        browserWindow: { width: 400, height: 400, show: false },
+        showDevTools: true,
+        browserWindow: { width: 400, height: 400, show: true },
         urlOptions: { userAgent: '_qd-ua' },
         sand: 'lodash', // sand = 'lodash' | 'css' | 'lodash/subworkers'
         logs: '+error,+perf',
@@ -22,32 +24,45 @@ const sandbox = zandbak({
 
 const rounds = [
     {
-        content: [
-            { name: 'Johnie', surname: 'Walker', age: 14 },
-            { name: 'Johnie', surname: 'Walker', age: 20 },
-            { name: 'Adam', surname: 'Smith', age: 99 },
-        ],
-        options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 1500,
-        }
-    },
-    {
         content: {
-            state: 'DC',
-            list: ['W', 'A', 'S', 'D']
+            input: `[
+                { "name": "Johnie", "surname": "Walker", "age": 14 },
+                { "name": "Johnie", "surname": "Walker", "age": 20 },
+                { "name": "Adam", "surname": "Smith", "age": 99 }
+            ]`,
+            expected: `[
+                "Johnie",
+                "Johnie",
+                "Adam"
+            ]`,
+            hidden: [
+                { input: '[{ "name": "hidden name" }]', expected: '["hidden name"]' }
+            ]
         },
         options: {
             reloadWorkers: false,
             refillWorkers: false,
-            taskTimeoutMs: 1500,
+            taskTimeoutMs: 50,
+        }
+    },
+    {
+        content: {
+            input: `{
+                "state": "DC",
+                "list": ["W", "A", "S", "D"]
+            }`,
+            expected: '"DC"'
+        },
+        options: {
+            reloadWorkers: false,
+            refillWorkers: false,
+            taskTimeoutMs: 50,
         }
     }
 ];
 
-function onTaskSolved(task, error, result) {
-    console.log('[test-lodash]', 'Task solved', task, '; error', error, '; result:', result);
+function onTaskSolved({ task, error, result, correct }) {
+    console.log('[test-lodash]', 'Task solved', task, '; error', error, '; result:', result, '; correct:', correct);
 
     switch (task.id) {
         case 'task-0':
@@ -57,7 +72,7 @@ function onTaskSolved(task, error, result) {
             assert.ifError(result);
             return;
         case 'task-2':
-            return assert.deepEqual(JSON.parse(result), [14, 20, 99]);
+            return assert.deepEqual(JSON.parse(result), ['Johnie', 'Johnie', 'Adam']);
         case 'task-3':
             assert.ok(error);
             assert.ifError(result);
@@ -79,11 +94,12 @@ function onTaskSolved(task, error, result) {
 sandbox.on('solved', onTaskSolved);
 sandbox.resetWith(rounds[0]);
 
+
 setTimeout(() => {
     sandbox
         .exec({ id: 'task-0', input: 'map("name")' }) // OK
         .exec({ id: 'task-1', input: 'map(name")' }) // internal error
-        .exec({ id: 'task-2', input: 'map((a) => a.age)' }); // OK
+        .exec({ id: 'task-2', input: 'reduce((a) => a, ["Johnie", "Johnie", "Adam"])' }); // partial
 }, 1000);
 setTimeout(() => {
     sandbox

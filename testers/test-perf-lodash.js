@@ -19,14 +19,20 @@ const sandbox = zandbak({
 
 const rounds = [
     {
-        content: [
-            { name: 'Johnie', surname: 'Walker', age: 14 },
-            { name: 'Johnie', surname: 'Walker', age: 20 },
-            { name: 'Adam', surname: 'Smith', age: 99 },
-            { name: 'Jack', surname: 'Daniels', age: 18 },
-            { name: 'Unknown', surname: 'Jameson', age: 18 },
-            { name: 'Adam', surname: 'Smith1', age: 4 },
-        ],
+        content: {
+            input: [
+                { name: 'Johnie', surname: 'Walker', age: 14 },
+                { name: 'Johnie', surname: 'Walker', age: 20 },
+                { name: 'Adam', surname: 'Smith', age: 99 },
+                { name: 'Jack', surname: 'Daniels', age: 18 },
+                { name: 'Unknown', surname: 'Jameson', age: 18 },
+                { name: 'Adam', surname: 'Smith1', age: 4 },
+            ],
+            expected: ['Johnie'],
+            hidden: [
+                { input: '[{ "name": "hidden name" }]', expected: '["hidden name"]' }
+            ]
+        },
         options: {
             reloadWorkers: false,
             refillWorkers: false,
@@ -49,8 +55,8 @@ const rounds = [
 const tasksCount = 1000;
 let remainingTasks = tasksCount;
 
-function onTaskSolved(task, error, result) {
-    console.log('[test-perf-lodash]', 'Task solved', task, '; error', error, '; result:', result);
+function onTaskSolved({ task, error, result, correct }) {
+    console.log('[test-perf-lodash]', 'Task solved', task, '; error', error, '; result:', result, '; correct:', correct);
     console.log('[test-perf-lodash]', 'Remaining tasks', --remainingTasks);
 }
 

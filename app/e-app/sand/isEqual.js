@@ -60,8 +60,8 @@ const isEqual = function (obj, oth) {
     }
 
     return (obj === oth);
-}
+};
 
-if (module && module.exports) {
+if (!this.zandbakWorker) {
     module.exports = isEqual;
 }

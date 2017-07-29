@@ -24,11 +24,21 @@ const sandbox = zandbak({
 
 const rounds = [
     {
-        content: `[
-            { "name": "Johnie", "surname": "Walker", "age": 14 },
-            { "name": "Johnie", "surname": "Walker", "age": 20 },
-            { "name": "Adam", "surname": "Smith", "age": 99 }
-        ]`,
+        content: {
+            input: `[
+                { "name": "Johnie", "surname": "Walker", "age": 14 },
+                { "name": "Johnie", "surname": "Walker", "age": 20 },
+                { "name": "Adam", "surname": "Smith", "age": 99 }
+            ]`,
+            expected: `[
+                "Johnie",
+                "Johnie",
+                "Adam"
+            ]`,
+            hidden: [
+                { input: '[{ "name": "hidden name" }]', expected: '["hidden name"]' }
+            ]
+        },
         options: {
             reloadWorkers: false,
             refillWorkers: false,
@@ -36,10 +46,13 @@ const rounds = [
         }
     },
     {
-        content: `{
-            "state": "DC",
-            "list": ["W", "A", "S", "D"]
-        }`,
+        content: {
+            input: `{
+                "state": "DC",
+                "list": ["W", "A", "S", "D"]
+            }`,
+            expected: '"DC"'
+        },
         options: {
             reloadWorkers: false,
             refillWorkers: false,
@@ -48,8 +61,8 @@ const rounds = [
     }
 ];
 
-function onTaskSolved(task, error, result) {
-    console.log('[test-lodash]', 'Task solved', task, '; error', error, '; result:', result);
+function onTaskSolved({ task, error, result, correct }) {
+    console.log('[test-lodash]', 'Task solved', task, '; error', error, '; result:', result, '; correct:', correct);
 
     switch (task.id) {
         case 'task-0':
@@ -59,7 +72,7 @@ function onTaskSolved(task, error, result) {
             assert.ifError(result);
             return;
         case 'task-2':
-            return assert.deepEqual(JSON.parse(result), [14, 20, 99]);
+            return assert.deepEqual(JSON.parse(result), ['Johnie', 'Johnie', 'Adam']);
         case 'task-3':
             assert.ok(error);
             assert.ifError(result);
@@ -85,7 +98,7 @@ setTimeout(() => {
     sandbox
         .exec({ id: 'task-0', input: 'map("name")' }) // OK
         .exec({ id: 'task-1', input: 'map(name")' }) // internal error
-        .exec({ id: 'task-2', input: 'map((a) => a.age)' }); // OK
+        .exec({ id: 'task-2', input: 'reduce((a) => a, ["Johnie", "Johnie", "Adam"])' }); // partial
 }, 1000);
 setTimeout(() => {
     sandbox
@@ -101,4 +114,4 @@ setTimeout(() => {
     sandbox.resetWith(null);
 }, 7000);
 
-// setTimeout(sandbox.destroy, 10000);
+setTimeout(sandbox.destroy, 10000);

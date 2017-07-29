@@ -140,57 +140,118 @@
         },On.prototype.toJSON=On.prototype.valueOf=On.prototype.value=function(){return kr(this.__wrapped__,this.__actions__)},On.prototype.first=On.prototype.head,Ai&&(On.prototype[Ai]=tu),On}();typeof define=="function"&&typeof define.amd=="object"&&define.amd?(Zn._=it, define(function(){return it})):Vn?((Vn.exports=it)._=it,qn._=it):Zn._=it}).call(this);
     </script>
     <script>
+        this.zandbakWorker = true; // required for improted below scripts
+    </script>
+    <script src="isEqual.js"></script>
+    <script>
         (function() {
             var stub = {};
             var stubFun = function() {};
-            var content = [];
+            var resultBackup = JSON.stringify('');
+            var content = {
+                input: [],
+                expected: undefined,
+                hidden: [] // array of objects { input: {JSON}, expected: {JSON} }
+            };
             var ipcRenderer = require('electron').ipcRenderer;
             var _lodash = Object.freeze(_);
             window.require = stubFun;
             window.process = stub;
 
-            function exec(task, puzzleContent) {
+            function evaluate(task, puzzleContent) {
                 try {
                     var result = eval('(function(_, content, ipcRenderer, window, document, location, alert, $, require, process, global, setTimeout, setInterval, requestAnimationFrame, requestIdleCallback) {"use strict"; return _.chain(content).' + task.input + '.value()}).call(stub, _lodash, puzzleContent, stub, stub, stub, stub, stubFun, stub, stubFun, stub, stub, stubFun, stubFun, stubFun, stubFun)');
 
-                    result = JSON.stringify(result);
+                    return [null, result];
+                } catch (e) {
+                    return [e, null];
+                }
+            }
 
-                    if (typeof result === 'undefined') {
-                        // undefined, function, Symbol are stringify-ed to undefined
-                        result = JSON.stringify('');
+            function evaluateHidden(task, hidden) {
+                var index = -1;
+                var hiddenCount = hidden.length;
+
+                while (++index < hiddenCount) {
+                    var hiddenPuzzle = hidden[index];
+                    var puzzleContent = _.cloneDeep(hiddenPuzzle.input);
+                    var evalResult = evaluate(task, puzzleContent);
+
+                    if (evalResult[0]) {
+                        return false;
                     }
 
-                    return [result];
-                } catch (e) {
-                    return [null, e];
+                    if (!isEqual(hiddenPuzzle.expected, evalResult[1])) {
+                        return false;
+                    }
                 }
+
+                return true;
             }
 
             ipcRenderer.on('wrk:>init', function (event, message) {
                 ipcRenderer.send('wrk::created', { path: [] });
             });
 
-            ipcRenderer.on('wrk:>fill', function (event, message) {
-                content = [];
+            ipcRenderer.on('wrk:>fill', function (event, payload) {
+                content = {
+                    input: [],
+                    expected: undefined,
+                    hidden: []
+                };
 
-                content = typeof message.content === 'string' ? JSON.parse(message.content) : message.content;
-                message.content = undefined; // no need to transfer back the filler
+                if (payload.content) {
+                    content.input = typeof payload.content.input === 'string' ? JSON.parse(payload.content.input) : payload.content.input;
+                    content.expected = typeof payload.content.expected === 'string' ? JSON.parse(payload.content.expected) : payload.content.expected;
+                    if (payload.content.hidden) {
+                        var hidden = payload.content.hidden;
+                        var index = -1;
+                        var hiddenCount = hidden.length;
 
-                ipcRenderer.send('wrk::filled', message);
-            });
-
-            ipcRenderer.on('wrk:>exec', function (event, message) {
-                var puzzleContent = _.cloneDeep(content);
-                var result = exec(message.task, puzzleContent);
-
-                if (result.length === 1) {
-                    message.result = result[0];
-                } else {
-                    var e = result[1];
-                    message.error = (e && e.message || (e + ''));
+                        while (++index < hiddenCount) {
+                            var hiddenPuzzle = hidden[index];
+                            content.hidden.push({
+                                input: typeof hiddenPuzzle.input === 'string' ? JSON.parse(hiddenPuzzle.input) : hiddenPuzzle.input,
+                                expected: typeof hiddenPuzzle.expected === 'string' ? JSON.parse(hiddenPuzzle.expected) : hiddenPuzzle.expected,
+                            });
+                        }
+                    }
                 }
 
-                ipcRenderer.send('wrk::done', message);
+                payload.content = undefined; // no need to transfer back the filler
+
+                ipcRenderer.send('wrk::filled', payload);
+            });
+
+            ipcRenderer.on('wrk:>exec', function (event, payload) {
+                var puzzleContent = _.cloneDeep(content.input);
+                var evalResult = evaluate(payload.task, puzzleContent);
+
+                if (evalResult[0]) {
+                    // error branch
+                    var e = evalResult[0];
+                    payload.error = (e && e.message || (e + ''));
+                } else {
+                    var result = evalResult[1];
+                    var resultStr = JSON.stringify(result);
+
+                    if (typeof resultStr === 'undefined') {
+                        resultStr = resultBackup; // undefined, function, Symbol are stringify-ed to undefined
+                    }
+                    payload.result = resultStr;
+
+                    if (isEqual(content.expected, result)) {
+                        if (evaluateHidden(payload.task, content.hidden)) {
+                            payload.correct = 'correct';
+                        } else {
+                            payload.correct = 'partial';
+                        }
+                    } else {
+                        payload.correct = 'incorrect';
+                    }
+                }
+
+                ipcRenderer.send('wrk::done', payload);
             });
         })();
     </script>

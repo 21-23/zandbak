@@ -1,9 +1,21 @@
+/* eslint-env worker */
+/* global _, isEqual */
+/* eslint no-var: "warn", vars-on-top: "warn", object-shorthand: "warn", no-eval: "off", prefer-arrow-callback: "warn" */
+
 importScripts('./lodash.js');
 
 var stub = {};
-var stubFun = function() {};
-var content = [];
+var stubFun = function () {};
+var resultBackup = JSON.stringify('');
+var content = {
+    input: [],
+    expected: undefined,
+    hidden: [] // array of objects { input: {JSON}, expected: {JSON} }
+};
 var _lodash = Object.freeze(_);
+
+var zandbakWorker = true; // required for improted below scripts
+importScripts('../isEqual.js');
 
 function initWorker(options) {
     postMessage({
@@ -13,9 +25,30 @@ function initWorker(options) {
 }
 
 function fillWorker(payload) {
-    content = [];
+    content = {
+        input: [],
+        expected: undefined,
+        hidden: []
+    };
 
-    content = typeof payload.content === 'string' ? JSON.parse(payload.content) : payload.content;
+    if (payload.content) {
+        content.input = typeof payload.content.input === 'string' ? JSON.parse(payload.content.input) : payload.content.input;
+        content.expected = typeof payload.content.expected === 'string' ? JSON.parse(payload.content.expected) : payload.content.expected;
+        if (payload.content.hidden) {
+            var hidden = payload.content.hidden;
+            var index = -1;
+            var hiddenCount = hidden.length;
+
+            while (++index < hiddenCount) {
+                var hiddenPuzzle = hidden[index];
+                content.hidden.push({
+                    input: typeof hiddenPuzzle.input === 'string' ? JSON.parse(hiddenPuzzle.input) : hiddenPuzzle.input,
+                    expected: typeof hiddenPuzzle.expected === 'string' ? JSON.parse(hiddenPuzzle.expected) : hiddenPuzzle.expected,
+                });
+            }
+        }
+    }
+
     payload.content = undefined; // no need to transfer back the filler
 
     postMessage({
@@ -28,28 +61,59 @@ function evaluate(task, puzzleContent) {
     try {
         var result = eval('(function(_, content, global, setTimeout, setInterval, self, location, navigator, onmessage, close, postMessage, importScripts) {"use strict"; return _.chain(content).' + task.input + '.value()}).call(stub, _lodash, puzzleContent, stub, stubFun, stubFun, stub, stub, stub, stubFun, stubFun, stubFun, stubFun)');
 
-        result = JSON.stringify(result);
-
-        if (typeof result === 'undefined') {
-            // undefined, function, Symbol are stringify-ed to undefined
-            result = JSON.stringify('');
-        }
-
-        return [result];
+        return [null, result];
     } catch (e) {
-        return [null, e];
+        return [e, null];
     }
 }
 
-function exec(payload) {
-    var puzzleContent = _.cloneDeep(content);
-    var result = evaluate(payload.task, puzzleContent);
+function evaluateHidden(task, hidden) {
+    var index = -1;
+    var hiddenCount = hidden.length;
 
-    if (result.length === 1) {
-        payload.result = result[0];
+    while (++index < hiddenCount) {
+        var hiddenPuzzle = hidden[index];
+        var puzzleContent = _.cloneDeep(hiddenPuzzle.input);
+        var evalResult = evaluate(task, puzzleContent);
+
+        if (evalResult[0]) {
+            return false;
+        }
+
+        if (!isEqual(hiddenPuzzle.expected, evalResult[1])) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function exec(payload) {
+    var puzzleContent = _.cloneDeep(content.input);
+    var evalResult = evaluate(payload.task, puzzleContent);
+
+    if (evalResult[0]) {
+        // error branch
+        var e = evalResult[0];
+        payload.error = ((e && e.payload) || (e + ''));
     } else {
-        var e = result[1];
-        payload.error = (e && e.payload || (e + ''));
+        var result = evalResult[1];
+        var resultStr = JSON.stringify(result);
+
+        if (typeof resultStr === 'undefined') {
+            resultStr = resultBackup; // undefined, function, Symbol are stringify-ed to undefined
+        }
+        payload.result = resultStr;
+
+        if (isEqual(content.expected, result)) {
+            if (evaluateHidden(payload.task, content.hidden)) {
+                payload.correct = 'correct';
+            } else {
+                payload.correct = 'partial';
+            }
+        } else {
+            payload.correct = 'incorrect';
+        }
     }
 
     postMessage({
@@ -68,6 +132,7 @@ self.addEventListener('message', function (event) {
             return fillWorker(data.payload);
         case 'wrk:>exec':
             return exec(data.payload);
-
+        default:
+            return undefined;
     }
 });

@@ -95,6 +95,7 @@ function executeJob(job, worker, jobs, filler, emitter, eApp, logger) {
             task: job.task,
             // error: undefined     <-- ninja property filled by sand
             // result: {}           <-- ninja property filled by sand
+            // correct: ''          <-- ninja property filled by sand
         }
     });
 }
@@ -211,7 +212,12 @@ function onWorkerStateChange(payload, workers, jobs, filler, emitter, eApp, logg
 // ====================== Job handling ======================
 
 function onJobDone(payload, workers, jobs, filler, emitter, eApp, logger) {
-    emitter.emit('solved', payload.task, payload.error, payload.result);
+    emitter.emit('solved', {
+        task: payload.task,
+        error: payload.error,
+        result: payload.result,
+        correct: payload.correct
+    });
 
     const job = jobs.get(payload.jobId);
     const worker = getWorker(workers, payload.path);
@@ -253,7 +259,7 @@ function onJobDone(payload, workers, jobs, filler, emitter, eApp, logger) {
 }
 
 function onJobTimeout(job, worker, jobs, emitter, eApp, logger) {
-    emitter.emit('solved', job.task, JOB_TIMEOUT_ERROR);
+    emitter.emit('solved', { task: job.task, error: JOB_TIMEOUT_ERROR });
 
     clearTimeout(job.timerId);
     jobs.delete(job.jobId);
@@ -273,7 +279,7 @@ function onJobTimeout(job, worker, jobs, emitter, eApp, logger) {
 
 function resetWith(jobs, workers, emitter, eApp, logger) {
     jobs.forEach((job) => {
-        emitter.emit('solved', job.task, JOB_INT_ERROR);
+        emitter.emit('solved', { task: job.task, error: JOB_INT_ERROR });
 
         logger.perf('Task full time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
 
@@ -320,7 +326,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
             const validationError = validate(task.input, validators);
 
             if (validationError) {
-                emitter.emit('solved', task, validationError);
+                emitter.emit('solved', { task, error: validationError });
                 logger.perf('Task validation error');
 
                 return instance;

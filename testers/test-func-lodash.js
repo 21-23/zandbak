@@ -14,8 +14,8 @@ const sandbox = zandbak({
         ],
     },
     eAppOptions: {
-        showDevTools: true,
-        browserWindow: { width: 400, height: 400, show: true },
+        showDevTools: false,
+        browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
         sand: 'lodash', // sand = 'lodash' | 'css' | 'lodash/subworkers'
         logs: '+error,+perf',

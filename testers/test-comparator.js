@@ -5,6 +5,7 @@ const _isEqual = require('lodash.isequal'); // eslint-disable-line import/no-ext
 const { hrtimeToMs } = require('../app/helpers');
 
 const isEqual = require('../app/e-app/sand/isEqual');
+const areSameArrays = require('../app/e-app/sand/areSameArrays');
 
 const testData = [
     [null, null, true],
@@ -46,21 +47,53 @@ let uTestEnd = null;
 const testDataCopy = JSON.parse(JSON.stringify(testData));
 const testDataCopyCopy = JSON.parse(JSON.stringify(testData));
 
-assert.equal(isEqual(testDataCopy, testDataCopyCopy), true, 'Uber test failed');
-assert.equal(_isEqual(testDataCopy, testDataCopyCopy), true, 'Uber test failed');
+assert.equal(isEqual(testDataCopy, testDataCopyCopy), true, '[isEqual] Uber test failed');
+assert.equal(_isEqual(testDataCopy, testDataCopyCopy), true, '[isEqual] Uber test failed');
 
 uTestStart = process.hrtime();
 uTestResult = isEqual(testData, testDataCopy);
 uTestEnd = process.hrtime(uTestStart);
-console.log('comparator uTest:', hrtimeToMs(uTestEnd));
+console.log('[isEqual] comparator uTest:', hrtimeToMs(uTestEnd));
 assert.equal(uTestResult, false, 'Uber test failed');
 
 
 uTestStart = process.hrtime();
 uTestResult = _isEqual(testData, testDataCopy);
 uTestEnd = process.hrtime(uTestStart);
-console.log('_.isEqual uTest:', hrtimeToMs(uTestEnd));
+console.log('[isEqual] _.isEqual uTest:', hrtimeToMs(uTestEnd));
 assert.equal(uTestResult, false, 'Uber test failed');
 
 
-console.log('✅  Passed');
+console.log('✅  [isEqual] Passed');
+
+
+// ------------------------------------------------------------------------------------------------
+
+
+const arraysTestData = [
+    [[], [], true],
+    [['1'].sort(), ['1'].sort(), true],
+    [['1'].sort(), ['2'].sort(), false],
+    [['1', '2'].sort(), ['1'].sort(), false],
+    [['1'].sort(), ['1', '2'].sort(), false],
+    [['1', '2'].sort(), ['2', '1'].sort(), true],
+    [['1', '2', '3'].sort(), ['3', '1', '2'].sort(), true],
+];
+
+arraysTestData.forEach((testInput) => {
+    const arr = testInput[0];
+    const oth = testInput[1];
+    const expected = testInput[2];
+
+    assert.equal(areSameArrays(arr, oth, arr.length), expected, `Expected mismatch: ${JSON.stringify(testInput)}`);
+});
+
+assert.equal(areSameArrays(arraysTestData, arraysTestData, arraysTestData.length), true, '[areSameArrays] Uber test failed');
+
+uTestStart = process.hrtime();
+uTestResult = areSameArrays(arraysTestData, arraysTestData, arraysTestData.length);
+uTestEnd = process.hrtime(uTestStart);
+console.log('[areSameArrays] comparator uTest:', hrtimeToMs(uTestEnd));
+assert.equal(uTestResult, true, '[areSameArrays] Uber test failed');
+
+console.log('✅  [areSameArrays] Passed');

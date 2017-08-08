@@ -212,16 +212,21 @@ function onWorkerStateChange(payload, workers, jobs, filler, emitter, eApp, logg
 // ====================== Job handling ======================
 
 function onJobDone(payload, workers, jobs, filler, emitter, eApp, logger) {
-    emitter.emit('solved', {
-        task: payload.task,
-        error: payload.error,
-        result: payload.result,
-        correct: payload.correct
-    });
+    const invalidFiller = payload.fillerId !== filler.fillerId;
+
+    // if filter is invalid - we are no longer interested in the solution
+    if (!invalidFiller) {
+        emitter.emit('solved', {
+            task: payload.task,
+            error: payload.error,
+            result: payload.result,
+            correct: payload.correct
+        });
+    }
 
     const job = jobs.get(payload.jobId);
     const worker = getWorker(workers, payload.path);
-    const invalidFiller = payload.fillerId !== filler.fillerId;
+
 
     if (job) {
         // job may not exist if it was interrupted (e.g. by time out or resetWith) in the middle of execution

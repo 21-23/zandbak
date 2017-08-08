@@ -1,17 +1,37 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <div id="qd-scope"></div>
+    <script>
+        this.zandbakWorker = true;
+    </script>
+    <script src="areSameArrays.js"></script>
     <script>
         (function() {
+            var scope = document.getElementById('qd-scope');
+            var resultBackup = JSON.stringify([]);
+            var content = {
+                input: '',
+                expected: undefined,
+                expectedLength: undefined
+            };
             var ipcRenderer = require('electron').ipcRenderer;
 
-            function exec(task) {
+            function evaluate(task, puzzleScope) {
+                // Throws a SYNTAX_ERR exception if the specified group of selectors is invalid.
                 try {
-                    var result = document.querySelectorAll(task.input);
+                    var nodes = puzzleScope.querySelectorAll(task.input);
+                    var nodesLength = nodes.length;
+                    var index = -1;
+                    var result = new Array(nodesLength);
 
-                    return [result];
+                    while (++index < nodesLength) {
+                        result[index] = nodes[index].dataset['qdid'];
+                    }
+
+                    return [null, result];
                 } catch (e) {
-                    return [null, e];
+                    return [e, null];
                 }
             }
 
@@ -19,24 +39,47 @@
                 ipcRenderer.send('wrk::created', { path: [] });
             });
 
-            ipcRenderer.on('wrk:>fill', function (event, message) {
-                document.body.innerHTML = message.content;
-                message.content = undefined; // no need to transfer back the filler
+            ipcRenderer.on('wrk:>fill', function (event, payload) {
+                content = {
+                    input: '',
+                    expected: undefined,
+                    expectedLength: undefined
+                };
 
-                ipcRenderer.send('wrk::filled', message);
-            });
-
-            ipcRenderer.on('wrk:>exec', function (event, message) {
-                var result = exec(message.task);
-
-                if (result.length === 1) {
-                    message.result = result[0];
-                } else {
-                    var e = result[1];
-                    message.error = (e && e.message || (e + ''));
+                if (payload.content) {
+                    content.input = payload.content.input;
+                    content.expected = typeof payload.content.expected === 'string' ? JSON.parse(payload.content.expected) : payload.content.expected;
+                    content.expected.sort();
+                    content.expectedLength = content.expected.length;
                 }
 
-                ipcRenderer.send('wrk::done', message);
+                scope.innerHTML = content.input;
+
+                payload.content = undefined; // no need to transfer back the filler
+
+                ipcRenderer.send('wrk::filled', payload);
+            });
+
+            ipcRenderer.on('wrk:>exec', function (event, payload) {
+                var evalResult = evaluate(payload.task, scope);
+
+                if (evalResult[0]) {
+                    // error branch
+                    var e = evalResult[0];
+                    payload.error = (e && e.message || (e + ''));
+                } else {
+                    var result = evalResult[1];
+
+                    payload.result = result;
+
+                    if (areSameArrays(content.expected, result.sort(), content.expectedLength)) {
+                        payload.correct = 'correct';
+                    } else {
+                        payload.correct = 'incorrect';
+                    }
+                }
+
+                ipcRenderer.send('wrk::done', payload);
             });
         })();
     </script>

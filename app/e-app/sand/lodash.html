@@ -150,9 +150,11 @@
             var resultBackup = JSON.stringify('');
             var content = {
                 input: [],
+                inputs: [],
                 expected: undefined,
                 hidden: [] // array of objects { input: {JSON}, expected: {JSON} }
             };
+            var inputCopies = 200;
             var ipcRenderer = require('electron').ipcRenderer;
             var _lodash = Object.freeze(_);
             window.require = stubFun;
@@ -174,7 +176,7 @@
 
                 while (++index < hiddenCount) {
                     var hiddenPuzzle = hidden[index];
-                    var puzzleContent = _.cloneDeep(hiddenPuzzle.input);
+                    var puzzleContent = hiddenPuzzle.inputs.pop() || _.cloneDeep(hiddenPuzzle.input);
                     var evalResult = evaluate(task, puzzleContent);
 
                     if (evalResult[0]) {
@@ -194,8 +196,11 @@
             });
 
             ipcRenderer.on('wrk:>fill', function (event, payload) {
+                var counter = -1;
+
                 content = {
                     input: [],
+                    inputs: [],
                     expected: undefined,
                     hidden: []
                 };
@@ -203,6 +208,12 @@
                 if (payload.content) {
                     content.input = typeof payload.content.input === 'string' ? JSON.parse(payload.content.input) : payload.content.input;
                     content.expected = typeof payload.content.expected === 'string' ? JSON.parse(payload.content.expected) : payload.content.expected;
+
+                    counter = -1;
+                    while (++counter < inputCopies) {
+                        content.inputs.push(_.cloneDeep(content.input));
+                    }
+
                     if (payload.content.hidden) {
                         var hidden = payload.content.hidden;
                         var index = -1;
@@ -210,10 +221,18 @@
 
                         while (++index < hiddenCount) {
                             var hiddenPuzzle = hidden[index];
-                            content.hidden.push({
+                            var hiddenContent = {
                                 input: typeof hiddenPuzzle.input === 'string' ? JSON.parse(hiddenPuzzle.input) : hiddenPuzzle.input,
+                                inputs: [],
                                 expected: typeof hiddenPuzzle.expected === 'string' ? JSON.parse(hiddenPuzzle.expected) : hiddenPuzzle.expected,
-                            });
+                            }
+
+                            counter = -1;
+                            while (++counter < inputCopies) {
+                                hiddenContent.inputs.push(_.cloneDeep(hiddenContent.input));
+                            }
+
+                            content.hidden.push(hiddenContent);
                         }
                     }
                 }
@@ -224,7 +243,7 @@
             });
 
             ipcRenderer.on('wrk:>exec', function (event, payload) {
-                var puzzleContent = _.cloneDeep(content.input);
+                var puzzleContent = content.inputs.pop() || _.cloneDeep(content.input);
                 var evalResult = evaluate(payload.task, puzzleContent);
 
                 if (evalResult[0]) {

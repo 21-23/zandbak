@@ -10,6 +10,7 @@
     "test:func:lodash:sw": "node ./testers/test-func-lodash-sw.js",
     "test:func:css": "node ./testers/test-func-css.js",
     "test:perf:lodash": "node ./testers/test-perf-lodash.js",
+    "test:perf:lodash:sw": "node ./testers/test-perf-lodash-sw.js",
     "test:comparator": "node ./testers/test-comparator.js",
     "lint": "eslint ./app",
     "precommit": "lint-staged"

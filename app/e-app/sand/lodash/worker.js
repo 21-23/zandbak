@@ -9,9 +9,11 @@ var stubFun = function () {};
 var resultBackup = JSON.stringify('');
 var content = {
     input: [],
+    inputs: [],
     expected: undefined,
     hidden: [] // array of objects { input: {JSON}, expected: {JSON} }
 };
+var inputCopies = 200;
 var _lodash = Object.freeze(_);
 
 var zandbakWorker = true; // required for improted below scripts
@@ -25,8 +27,10 @@ function initWorker(options) {
 }
 
 function fillWorker(payload) {
+    var counter = -1;
     content = {
         input: [],
+        inputs: [],
         expected: undefined,
         hidden: []
     };
@@ -34,6 +38,12 @@ function fillWorker(payload) {
     if (payload.content) {
         content.input = typeof payload.content.input === 'string' ? JSON.parse(payload.content.input) : payload.content.input;
         content.expected = typeof payload.content.expected === 'string' ? JSON.parse(payload.content.expected) : payload.content.expected;
+
+        counter = -1;
+        while (++counter < inputCopies) {
+            content.inputs.push(_.cloneDeep(content.input));
+        }
+
         if (payload.content.hidden) {
             var hidden = payload.content.hidden;
             var index = -1;
@@ -41,10 +51,18 @@ function fillWorker(payload) {
 
             while (++index < hiddenCount) {
                 var hiddenPuzzle = hidden[index];
-                content.hidden.push({
+                var hiddenContent = {
                     input: typeof hiddenPuzzle.input === 'string' ? JSON.parse(hiddenPuzzle.input) : hiddenPuzzle.input,
+                    inputs: [],
                     expected: typeof hiddenPuzzle.expected === 'string' ? JSON.parse(hiddenPuzzle.expected) : hiddenPuzzle.expected,
-                });
+                };
+
+                counter = -1;
+                while (++counter < inputCopies) {
+                    hiddenContent.inputs.push(_.cloneDeep(hiddenContent.input));
+                }
+
+                content.hidden.push(hiddenContent);
             }
         }
     }
@@ -73,7 +91,7 @@ function evaluateHidden(task, hidden) {
 
     while (++index < hiddenCount) {
         var hiddenPuzzle = hidden[index];
-        var puzzleContent = _.cloneDeep(hiddenPuzzle.input);
+        var puzzleContent = hiddenPuzzle.inputs.pop() || _.cloneDeep(hiddenPuzzle.input);
         var evalResult = evaluate(task, puzzleContent);
 
         if (evalResult[0]) {
@@ -89,7 +107,7 @@ function evaluateHidden(task, hidden) {
 }
 
 function exec(payload) {
-    var puzzleContent = _.cloneDeep(content.input);
+    var puzzleContent = content.inputs.pop() || _.cloneDeep(content.input);
     var evalResult = evaluate(payload.task, puzzleContent);
 
     if (evalResult[0]) {

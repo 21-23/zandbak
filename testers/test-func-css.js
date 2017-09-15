@@ -3,21 +3,21 @@ const assert = require('assert');
 const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
-    zandbakOptions: {
-        workersCount: 2,
-        workerOptions: {
-            subworkersCount: 0,
-        },
-        logs: '+error,+perf',
-        validators: [],
+    logLevel: '+error,+perf',
+    validators: [],
+    workers: {
+        count: 2,
+        options: {},
     },
-    eAppOptions: {
+}, {
+    type: 'electron',
+    logLevel: '+error,+perf',
+    options: {
+        sand: 'css', // css | lodash | lodash/subworkers
         showDevTools: false,
         browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
-        sand: 'css', // sand = 'lodash' | 'css'
-        logs: '+error,+perf',
-    }
+    },
 });
 
 const rounds = [

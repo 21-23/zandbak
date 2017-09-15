@@ -8,7 +8,7 @@
     "test:unit": "",
     "test:func:lodash": "node ./testers/test-func-lodash.js",
     "test:func:lodash:sw": "node ./testers/test-func-lodash-sw.js",
-    "test:func:css": "node ./testers/test-func-css.js",
+    "test:func:css": "node --inspect-brk ./testers/test-func-css.js",
     "test:perf:lodash": "node ./testers/test-perf-lodash.js",
     "test:perf:lodash:sw": "node ./testers/test-perf-lodash-sw.js",
     "test:comparator": "node ./testers/test-comparator.js",

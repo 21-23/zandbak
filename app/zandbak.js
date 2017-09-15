@@ -1,28 +1,33 @@
 const path = require('path');
-const proc = require('child_process');
+// const proc = require('child_process');
 const EventEmitter = require('events');
 
 const _uniqueid = require('lodash.uniqueid');
-const electron = require('electron');
+// const electron = require('electron');
 
 const createLogger = require('./logger');
 
 const { JOB_STATE, WORKER_STATE, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, serializePath, hrtimeToMs } = require('./helpers');
 
-const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
+// const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 const emptyFiller = createFiller('filler-empty', null, { reloadWorkers: true });
 
 
-function createEAppProc(options) {
-    const child = proc.spawn(
-        electron,
-        [eAppPath].concat(JSON.stringify(options || {})),
-        {
-            stdio: [null, process.stdout, process.stderr, 'ipc']
-        }
-    );
+function createBackend({ type, logLevel, options }) {
+    const backendPath = `./backends/${type}/${type}`;
+    const backend = require(backendPath);
 
-    return child;
+    return backend(options, createLogger(logLevel, `[backend][${type}]`));
+
+    // const child = proc.spawn(
+    //     electron,
+    //     [eAppPath].concat(JSON.stringify(options || {})),
+    //     {
+    //         stdio: [null, process.stdout, process.stderr, 'ipc']
+    //     }
+    // );
+
+    // return child;
 }
 
 function destroyEAppProc(eApp) {
@@ -309,18 +314,18 @@ function resetWith({ backend, emitter, jobs, logger, workers }) {
     });
 }
 
-module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
+module.exports = function zandbak(options, backendOptions) {
     const state = {
-        backend: createEAppProc(eAppOptions),
+        backend: createBackend(backendOptions),
         emitter: new EventEmitter(),
         filler: emptyFiller,
         jobs: new Map(),
-        logger: createLogger(zandbakOptions.logs),
+        logger: createLogger(options.logLevel, 'zandbak'),
         workers: new Map(),
     };
     const { emitter, logger } = state;
 
-    let validators = createValidators(zandbakOptions.validators);
+    let validators = createValidators(options.validators);
 
     const instance = {
         resetWith: (newFiller) => {
@@ -386,7 +391,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
     state.backend.on('message', (message) => {
         switch (message.type) {
             case 'e-app::ready':
-                return createWorkers(zandbakOptions.workerOptions, zandbakOptions.workersCount, state);
+                return createWorkers(options.workers.count, options.workers.options, state);
             case 'e-app::wrk-state':
                 return onWorkerStateChange(message.payload, state);
             case 'e-app::done':
@@ -397,7 +402,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
     });
 
     state.backend.on('error', (error) => {
-        logger.error('Error in electron app', error);
+        logger.error('Error in backend app', error);
         emitter.emit('error', error);
     });
 

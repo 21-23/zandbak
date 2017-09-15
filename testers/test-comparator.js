@@ -72,12 +72,12 @@ console.log('✅  [isEqual] Passed');
 
 const arraysTestData = [
     [[], [], true],
-    [['1'].sort(), ['1'].sort(), true],
-    [['1'].sort(), ['2'].sort(), false],
-    [['1', '2'].sort(), ['1'].sort(), false],
-    [['1'].sort(), ['1', '2'].sort(), false],
-    [['1', '2'].sort(), ['2', '1'].sort(), true],
-    [['1', '2', '3'].sort(), ['3', '1', '2'].sort(), true],
+    [['1'].sort(), ['1'], true],
+    [['1'].sort(), ['2'], false],
+    [['1', '2'].sort(), ['1'], false],
+    [['1'].sort(), ['1', '2'], false],
+    [['1', '2'].sort(), ['2', '1'], true],
+    [['1', '2', '3'].sort(), ['3', '1', '2'], true],
 ];
 
 arraysTestData.forEach((testInput) => {

@@ -72,7 +72,7 @@
 
                     payload.result = result;
 
-                    if (areSameArrays(content.expected, result.sort(), content.expectedLength)) {
+                    if (areSameArrays(content.expected, result, content.expectedLength)) {
                         payload.correct = 'correct';
                     } else {
                         payload.correct = 'incorrect';

@@ -5,26 +5,44 @@
         (function() {
             var ipcRenderer = require('electron').ipcRenderer;
 
-            ipcRenderer.on('wrk:>init', function (event, message) {
+            function onWorkerInit(payload) {
                 ipcRenderer.send('wrk::created', { path: [] });
-            });
+            }
 
-            ipcRenderer.on('wrk:>fill', function (event, message) {
-                message.content = undefined; // no need to transfer back the filler
-                ipcRenderer.send('wrk::filled', message);
-            });
+            function onWorkerFill(payload) {
+                payload.content = undefined; // no need to transfer back the filler
+                ipcRenderer.send('wrk::filled', payload);
+            }
 
-            ipcRenderer.on('wrk:>exec', function (event, message) {
-                // the original message should be ready to accept 2 new props:
+            function onWorkerExec(payload) {
+                // the original message should be ready to accept 3 new props:
                 // - error
                 // - result
-                message.error = undefined;
-                message.result = {};
-                ipcRenderer.send('wrk::done', message);
-            });
+                // - correct
+                payload.error = undefined;
+                payload.result = {};
+                payload.correct = 'correct';
+                ipcRenderer.send('wrk::done', payload);
+            }
 
-            ipcRenderer.on('wrk:>reload', function (event, message) {
+            function onWorkerReload(payload) {
                 ipcRenderer.send('wrk::created', { path: [] });
+            }
+
+            ipcRenderer.on('message', function (event, message) {
+                switch (message.type) {
+                    case 'wrk:>init':
+                        return onWorkerInit(message.payload);
+                    case 'wrk:>fill':
+                        return onWorkerFill(message.payload);
+                    case 'wrk:>exec':
+                        return onWorkerExec(message.payload);
+                    case 'wrk:>reload':
+                        return onWorkerReload(message.payload);
+                    default:
+                        console.error('Unknown message', message);
+
+                }
             });
         })();
     </script>

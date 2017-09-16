@@ -42,45 +42,45 @@
                 });
             }
 
-            ipcRenderer.on('wrk:>init', function (event, message) {
-                for (var counter = 0; counter < message.subworkersCount; counter++) {
+            function onWorkerInit(payload) {
+                for (var counter = 0; counter < payload.subworkersCount; counter++) {
                     createSubworker(++subworkerCounter);
                 }
-            });
+            }
 
-            ipcRenderer.on('wrk:>fill', function (event, message) {
-                var subworkerId = message.path.shift();
+            function onWorkerFill(payload) {
+                var subworkerId = payload.path.shift();
                 var subworker = subworkers[subworkerId];
 
                 subworker.postMessage({
                     type: 'wrk:>fill',
                     payload: {
-                        path: message.path,
-                        fillerId: message.fillerId,
-                        content: message.content
+                        path: payload.path,
+                        fillerId: payload.fillerId,
+                        content: payload.content
                     }
                 });
-            });
+            }
 
-            ipcRenderer.on('wrk:>exec', function (event, message) {
-                var subworkerId = message.path.shift();
+            function onWorkerExec(payload) {
+                var subworkerId = payload.path.shift();
                 var subworker = subworkers[subworkerId];
 
                 subworker.postMessage({
                     type: 'wrk:>exec',
-                    payload: message
+                    payload: payload
                 });
-            });
+            }
 
-            ipcRenderer.on('wrk:>reload', function (event, message) {
-                var subworkerId = message.path.shift();
+            function onWorkerReload(payload) {
+                var subworkerId = payload.path.shift();
                 var subworker = subworkers[subworkerId];
 
-                if (message.path.length !== 0) {
+                if (payload.path.length !== 0) {
                     return subworker.postMessage({
                         type: 'wrk:>reload',
                         payload: {
-                            path: message.path,
+                            path: payload.path,
                         }
                     });
                 }
@@ -90,6 +90,22 @@
 
                 // create new subworker
                 createSubworker(subworkerId);
+            }
+
+            ipcRenderer.on('message', function (event, message) {
+                switch (message.type) {
+                    case 'wrk:>init':
+                        return onWorkerInit(message.payload);
+                    case 'wrk:>fill':
+                        return onWorkerFill(message.payload);
+                    case 'wrk:>exec':
+                        return onWorkerExec(message.payload);
+                    case 'wrk:>reload':
+                        return onWorkerReload(message.payload);
+                    default:
+                        console.error('Unknown message', message);
+
+                }
             });
         })();
     </script>

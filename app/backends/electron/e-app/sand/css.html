@@ -35,11 +35,11 @@
                 }
             }
 
-            ipcRenderer.on('wrk:>init', function (event, message) {
+            function onWorkerInit() {
                 ipcRenderer.send('wrk::created', { path: [] });
-            });
+            }
 
-            ipcRenderer.on('wrk:>fill', function (event, payload) {
+            function onWorkerFill(payload) {
                 content = {
                     input: '',
                     expected: undefined,
@@ -58,9 +58,9 @@
                 payload.content = undefined; // no need to transfer back the filler
 
                 ipcRenderer.send('wrk::filled', payload);
-            });
+            }
 
-            ipcRenderer.on('wrk:>exec', function (event, payload) {
+            function onWorkerExec(payload) {
                 var evalResult = evaluate(payload.task, scope);
 
                 if (evalResult[0]) {
@@ -80,6 +80,19 @@
                 }
 
                 ipcRenderer.send('wrk::done', payload);
+            }
+
+            ipcRenderer.on('message', function (event, message) {
+                switch (message.type) {
+                    case 'wrk:>init':
+                        return onWorkerInit();
+                    case 'wrk:>fill':
+                        return onWorkerFill(message.payload);
+                    case 'wrk:>exec':
+                        return onWorkerExec(message.payload);
+                    default:
+                        console.error('Unknown message', message);
+                }
             });
         })();
     </script>

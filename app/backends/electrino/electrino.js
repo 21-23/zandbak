@@ -1,9 +1,12 @@
+const EventEmitter = require('events');
+
 const contract = require('../contract');
 
 const TYPE = 'electrino';
 
 module.exports = function electrino(options, logger) {
-    const instance = contract.instance(TYPE);
+    const emitter = new EventEmitter();
+    const instance = contract.instance(TYPE, emitter);
 
     return instance;
 };

@@ -3,7 +3,7 @@ const assert = require('assert');
 const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
-    logLevel: '+error,+perf',
+    logLevel: '+error,+info,+perf',
     validators: [],
     workers: {
         count: 2,
@@ -11,12 +11,13 @@ const sandbox = zandbak({
     },
 }, {
     type: 'electron',
-    logLevel: '+error,+perf',
+    logLevel: '+error,+info,+perf',
     options: {
         sand: 'css', // css | lodash | lodash/subworkers
         showDevTools: false,
         browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
+        logs: '+error,+perf',
     },
 });
 

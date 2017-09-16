@@ -16,7 +16,7 @@ function parseLevel(level) {
 
 function conditionalLog(level, levels, prefix, ...args) {
     if (levels[level]) {
-        console.log(`[${Date.now()}] [${prefix}]`, ...args);
+        console.log(`[${prefix}] ${Date.now()}`, ...args);
     }
 }
 
@@ -47,5 +47,6 @@ module.exports = function logger(level, prefix = '') {
         perf: perfLog.bind(null, 'perf', levels, perfBuffer),
         flush: flush.bind(null, prefix, perfBuffer),
         error: conditionalLog.bind(null, 'error', levels, prefix),
+        info: conditionalLog.bind(null, 'info', levels, prefix),
     };
 };

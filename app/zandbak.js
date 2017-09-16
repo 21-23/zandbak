@@ -1,40 +1,27 @@
-const path = require('path');
-// const proc = require('child_process');
 const EventEmitter = require('events');
 
 const _uniqueid = require('lodash.uniqueid');
-// const electron = require('electron');
 
 const createLogger = require('./logger');
-
 const { JOB_STATE, WORKER_STATE, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, serializePath, hrtimeToMs } = require('./helpers');
 
-// const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 const emptyFiller = createFiller('filler-empty', null, { reloadWorkers: true });
 
 
 function createBackend({ type, logLevel, options }) {
+    // require backend lazily to avoid redundand memory usage
     const backendPath = `./backends/${type}/${type}`;
     const backend = require(backendPath);
 
-    return backend(options, createLogger(logLevel, `[backend][${type}]`));
-
-    // const child = proc.spawn(
-    //     electron,
-    //     [eAppPath].concat(JSON.stringify(options || {})),
-    //     {
-    //         stdio: [null, process.stdout, process.stderr, 'ipc']
-    //     }
-    // );
-
-    // return child;
+    return backend(options, createLogger(logLevel, `backend::${type}`));
 }
 
-function destroyEAppProc(eApp) {
-    eApp.removeAllListeners('message');
+function destroyBackend(eApp) {
+    eApp
+        .off('message')
+        .off('error');
 
-    // potentially, we can rely on 'e-app::destroy' but who knows...
-    eApp.kill('SIGINT');
+    eApp.destroy();
 }
 
 function createValidators(options) {
@@ -150,7 +137,7 @@ function tryExecuteJob(state, preferredWorker) {
 
 // ====================== Workers ======================
 
-function createWorkers(options, amount, { backend }) {
+function createWorkers(amount, options, { backend }) {
     let counter = 0;
 
     while (++counter <= amount) {
@@ -363,7 +350,7 @@ module.exports = function zandbak(options, backendOptions) {
             logger.flush();
 
             if (state.backend) {
-                destroyEAppProc(state.backend);
+                destroyBackend(state.backend);
                 state.backend = null;
             }
             if (validators) {
@@ -388,28 +375,29 @@ module.exports = function zandbak(options, backendOptions) {
         }
     };
 
-    state.backend.on('message', (message) => {
-        switch (message.type) {
-            case 'e-app::ready':
-                return createWorkers(options.workers.count, options.workers.options, state);
-            case 'e-app::wrk-state':
-                return onWorkerStateChange(message.payload, state);
-            case 'e-app::done':
-                return onJobDone(message.payload, state);
-            default:
-                logger.error('Unknown message from e-app', message);
-        }
-    });
-
-    state.backend.on('error', (error) => {
-        logger.error('Error in backend app', error);
-        emitter.emit('error', error);
-    });
+    state.backend
+        .on('message', (message) => {
+            switch (message.type) {
+                case 'e-app::ready':
+                    return createWorkers(options.workers.count, options.workers.options, state);
+                case 'e-app::wrk-state':
+                    return onWorkerStateChange(message.payload, state);
+                case 'e-app::done':
+                    return onJobDone(message.payload, state);
+                default:
+                    logger.error('Unknown message from e-app', message);
+            }
+        }).on('error', (error) => {
+            logger.error('Error in backend app', error);
+            emitter.emit('error', error);
+        });
 
     process.on('uncaughtException', (error) => {
         logger.error('uncaughtException:', error);
         instance.destroy();
     });
+
+    logger.info('zandbak instance is created');
 
     return instance;
 };

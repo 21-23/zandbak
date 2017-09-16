@@ -8,12 +8,12 @@ const { JOB_STATE, WORKER_STATE, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, cr
 const emptyFiller = createFiller('filler-empty', null, { reloadWorkers: true });
 
 
-function createBackend({ type, logLevel, options }) {
+function createBackend({ type, options }, logger) {
     // require backend lazily to avoid redundand memory usage
     const backendPath = `./backends/${type}/${type}`;
     const backend = require(backendPath);
 
-    return backend(options, createLogger(logLevel, `backend::${type}`));
+    return backend(options, logger);
 }
 
 function destroyBackend(eApp) {
@@ -302,15 +302,16 @@ function resetWith({ backend, emitter, jobs, logger, workers }) {
 }
 
 module.exports = function zandbak(options, backendOptions) {
+    const logger = createLogger(options.logLevel, 'zandbak');
     const state = {
-        backend: createBackend(backendOptions),
+        backend: createBackend(backendOptions, logger),
         emitter: new EventEmitter(),
         filler: emptyFiller,
         jobs: new Map(),
-        logger: createLogger(options.logLevel, 'zandbak'),
+        logger,
         workers: new Map(),
     };
-    const { emitter, logger } = state;
+    const { emitter } = state;
 
     let validators = createValidators(options.validators);
 
@@ -325,6 +326,11 @@ module.exports = function zandbak(options, backendOptions) {
             resetWith(state);
 
             logger.flush();
+
+            state.backend.send({
+                type: 'e-app:>flush',
+                payload: {}
+            });
 
             return instance;
         },

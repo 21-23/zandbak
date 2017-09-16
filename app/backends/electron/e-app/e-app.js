@@ -101,7 +101,7 @@ const OUTCOMING_EVENTS = {
 };
 
 const args = JSON.parse(process.argv[2]);
-const { error, perf, flush } = eAppLogger(args.logs);
+const { error, perf, flush } = eAppLogger(args.logLevel);
 
 function destroy() {
     app.exit(0);
@@ -233,5 +233,8 @@ ipcMain
     });
 
 app.on('ready', () => {
+    perf('e-app electron ready');
     process.send({ type: OUTCOMING_EVENTS.ready, payload: {} });
 });
+
+perf('e-app loaded');

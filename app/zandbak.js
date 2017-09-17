@@ -4,6 +4,7 @@ const _uniqueid = require('lodash.uniqueid');
 
 const createLogger = require('./logger');
 const { JOB_STATE, WORKER_STATE, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, serializePath, hrtimeToMs } = require('./helpers');
+const contract = require('./backends/contract');
 
 const emptyFiller = createFiller('filler-empty', null, { reloadWorkers: true });
 
@@ -81,7 +82,7 @@ function executeJob(job, worker, state) {
 
     worker.state = WORKER_STATE.busy;
     backend.send({
-        type: 'e-app:>exec',
+        type: contract.commands.EXEC,
         payload: {
             path: worker.path,
             jobId: job.jobId,
@@ -142,7 +143,7 @@ function createWorkers(amount, options, { backend }) {
 
     while (++counter <= amount) {
         backend.send({
-            type: 'e-app:>create-worker',
+            type: contract.commands.CREATE_WORKER,
             payload: options,
         });
     }
@@ -166,7 +167,7 @@ function onWorkerEmpty(path, { backend, filler, workers }) {
 
     worker.state = WORKER_STATE.filling;
     backend.send({
-        type: 'e-app:>fill-worker',
+        type: contract.commands.FILL_WORKER,
         payload: {
             path,
             content: filler.content,
@@ -182,7 +183,7 @@ function onWorkerReady(path, workerFillerId, state) {
     if (workerFillerId !== filler.fillerId) {
         worker.state = WORKER_STATE.filling;
         return backend.send({
-            type: 'e-app:>fill-worker',
+            type: contract.commands.FILL_WORKER,
             payload: {
                 path,
                 content: filler.content,
@@ -236,7 +237,7 @@ function onJobDone(payload, state) {
     if (filler.options.reloadWorkers) {
         worker.state = WORKER_STATE.creating;
         return backend.send({
-            type: 'e-app:>reload-worker',
+            type: contract.commands.RELOAD_WORKER,
             payload: {
                 path: worker.path,
             }
@@ -246,7 +247,7 @@ function onJobDone(payload, state) {
     if (invalidFiller || filler.options.refillWorkers) {
         worker.state = WORKER_STATE.filling;
         return backend.send({
-            type: 'e-app:>fill-worker',
+            type: contract.commands.FILL_WORKER,
             payload: {
                 path: worker.path,
                 content: filler.content,
@@ -271,7 +272,7 @@ function onJobTimeout(job, worker, { backend, emitter, jobs, logger }) {
 
     worker.state = WORKER_STATE.creating;
     backend.send({
-        type: 'e-app:>reload-worker',
+        type: contract.commands.RELOAD_WORKER,
         payload: {
             path: worker.path,
         }
@@ -293,7 +294,7 @@ function resetWith({ backend, emitter, jobs, logger, workers }) {
     workers.forEach((worker) => {
         worker.state = WORKER_STATE.creating;
         backend.send({
-            type: 'e-app:>reload-worker',
+            type: contract.commands.RELOAD_WORKER,
             payload: {
                 path: worker.path,
             }
@@ -328,7 +329,7 @@ module.exports = function zandbak(options, backendOptions) {
             logger.flush();
 
             state.backend.send({
-                type: 'e-app:>flush',
+                type: contract.commands.FLUSH,
                 payload: {}
             });
 
@@ -384,11 +385,11 @@ module.exports = function zandbak(options, backendOptions) {
     state.backend
         .on('message', (message) => {
             switch (message.type) {
-                case 'e-app::ready':
+                case contract.messages.READY:
                     return createWorkers(options.workers.count, options.workers.options, state);
-                case 'e-app::wrk-state':
+                case contract.messages.WORKER_STATE:
                     return onWorkerStateChange(message.payload, state);
-                case 'e-app::done':
+                case contract.messages.DONE:
                     return onJobDone(message.payload, state);
                 default:
                     logger.error('Unknown message from e-app', message);

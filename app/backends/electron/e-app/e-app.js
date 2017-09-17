@@ -87,7 +87,6 @@ const INCOMING_WORKER_EVENTS = {
     filled: 'wrk::filled',
     done: 'wrk::done',
 };
-// TODO: try single channel + different cmd types
 const OUTCOMING_WORKER_COMMANDS = {
     init: 'wrk:>init',
     fill: 'wrk:>fill',

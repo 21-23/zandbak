@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="../../../_common/lodash.js"></script>
+    <script src="../../_common/lodash.js"></script>
     <script>
-        this.zandbakWorker = true; // required for improted below scripts
+        this.zandbakWorker = true;
     </script>
-    <script src="../../../_common/isEqual.js"></script>
+    <script src="../../_common/isEqual.js"></script>
+</head>
+<body>
     <script>
         (function() {
             var stub = {};
@@ -18,14 +20,11 @@
                 hidden: [] // array of objects { input: {JSON}, expected: {JSON} }
             };
             var inputCopies = 200;
-            var ipcRenderer = require('electron').ipcRenderer;
             var _lodash = Object.freeze(_);
-            window.require = stubFun;
-            window.process = stub;
 
             function evaluate(task, puzzleContent) {
                 try {
-                    var result = eval('(function(_, content, ipcRenderer, window, document, location, alert, $, require, process, global, setTimeout, setInterval, requestAnimationFrame, requestIdleCallback) {"use strict"; return _.chain(content).' + task.input + '.value()}).call(stub, _lodash, puzzleContent, stub, stub, stub, stub, stubFun, stub, stubFun, stub, stub, stubFun, stubFun, stubFun, stubFun)');
+                    var result = eval('(function(_, content, window, document, location, alert, $, global, setTimeout, setInterval, requestAnimationFrame, requestIdleCallback) {"use strict"; return _.chain(content).' + task.input + '.value()}).call(stub, _lodash, puzzleContent, stub, stub, stub, stubFun, stub, stub, stubFun, stubFun, stubFun, stubFun)');
 
                     return [null, result];
                 } catch (e) {
@@ -54,11 +53,11 @@
                 return true;
             }
 
-            function onWorkerInit() {
-                ipcRenderer.send('wrk::created', { path: [] });
-            }
+            window.init = function (payload) {
+                return { path: [] };
+            };
 
-            function onWorkerFill(payload) {
+            window.fill = function (payload) {
                 var counter = -1;
 
                 content = {
@@ -102,10 +101,14 @@
 
                 payload.content = undefined; // no need to transfer back the filler
 
-                ipcRenderer.send('wrk::filled', payload);
-            }
+                return payload;
+            };
 
-            function onWorkerExec(payload) {
+            window.reloadWorker = function () {
+                console.error('lodash sand does not support sub-workers');
+            };
+
+            window.exec = function (payload) {
                 var puzzleContent = content.inputs.pop() || _.cloneDeep(content.input);
                 var evalResult = evaluate(payload.task, puzzleContent);
 
@@ -133,25 +136,9 @@
                     }
                 }
 
-                ipcRenderer.send('wrk::done', payload);
-            }
-
-            ipcRenderer.on('message', function (event, message) {
-                switch (message.type) {
-                    case 'wrk:>init':
-                        return onWorkerInit();
-                    case 'wrk:>fill':
-                        return onWorkerFill(message.payload);
-                    case 'wrk:>exec':
-                        return onWorkerExec(message.payload);
-                    default:
-                        console.error('Unknown message', message);
-
-                }
-            });
+                return payload;
+            };
         })();
     </script>
-</head>
-<body>
 </body>
 </html>

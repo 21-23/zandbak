@@ -2,7 +2,7 @@
 /* global _, isEqual */
 /* eslint no-var: "warn", vars-on-top: "warn", object-shorthand: "warn", no-eval: "off", prefer-arrow-callback: "warn" */
 
-importScripts('./lodash.js');
+importScripts('../../../../_common/lodash.js');
 
 var stub = {};
 var stubFun = function () {};
@@ -17,7 +17,7 @@ var inputCopies = 200;
 var _lodash = Object.freeze(_);
 
 var zandbakWorker = true; // required for improted below scripts
-importScripts('../isEqual.js');
+importScripts('../../../../_common/isEqual.js');
 
 function initWorker(options) {
     postMessage({

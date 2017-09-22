@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <div id="qd-scope"></div>
+    <script>
+        this.zandbakWorker = true;
+    </script>
+    <script src="../../_common/areSameArrays.js"></script>
+    <script>
+        (function() {
+            var scope = document.getElementById('qd-scope');
+            var resultBackup = JSON.stringify([]);
+            var content = {
+                input: '',
+                expected: undefined,
+                expectedLength: undefined
+            };
+
+            function evaluate(task, puzzleScope) {
+                // Throws a SYNTAX_ERR exception if the specified group of selectors is invalid.
+                try {
+                    var nodes = puzzleScope.querySelectorAll(task.input);
+                    var nodesLength = nodes.length;
+                    var index = -1;
+                    var result = new Array(nodesLength);
+
+                    while (++index < nodesLength) {
+                        result[index] = nodes[index].dataset['qdid'];
+                    }
+
+                    return [null, result];
+                } catch (e) {
+                    return [e, null];
+                }
+            }
+
+            window.init = function (payload) {
+                return { path: [] };
+            };
+
+            window.fill = function (payload) {
+                content = {
+                    input: '',
+                    expected: undefined,
+                    expectedLength: undefined
+                };
+
+                if (payload.content) {
+                    content.input = payload.content.input;
+                    content.expected = typeof payload.content.expected === 'string' ? JSON.parse(payload.content.expected) : payload.content.expected;
+                    content.expected.sort();
+                    content.expectedLength = content.expected.length;
+                }
+
+                scope.innerHTML = content.input;
+
+                payload.content = undefined; // no need to transfer back the filler
+
+                return payload;
+            };
+
+            window.reloadWorker = function () {
+                console.error('css sand does not support sub-workers');
+            };
+
+            window.exec = function (payload) {
+                var evalResult = evaluate(payload.task, scope);
+
+                if (evalResult[0]) {
+                    // error branch
+                    var e = evalResult[0];
+                    payload.error = (e && e.message || (e + ''));
+                } else {
+                    var result = evalResult[1];
+
+                    payload.result = result;
+
+                    if (areSameArrays(content.expected, result, content.expectedLength)) {
+                        payload.correct = 'correct';
+                    } else {
+                        payload.correct = 'incorrect';
+                    }
+                }
+
+                return payload;
+            };
+        })();
+    </script>
+</head>
+<body>
+</body>
+</html>

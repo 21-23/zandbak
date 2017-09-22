@@ -13,10 +13,10 @@ const sandbox = zandbak({
     type: 'electron',
     options: {
         sand: 'css', // css | lodash | lodash/subworkers
+        logLevel: '+error,+perf',
         showDevTools: false,
         browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
-        logLevel: '+error,+perf',
     },
 });
 

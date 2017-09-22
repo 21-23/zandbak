@@ -25,7 +25,8 @@
   "dependencies": {
     "electron": "1.7.6",
     "esprima": "4.0.0",
-    "lodash.uniqueid": "^4.0.1"
+    "lodash.uniqueid": "^4.0.1",
+    "puppeteer": "0.10.2"
   },
   "devDependencies": {
     "eslint": "^3.12.2",

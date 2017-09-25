@@ -27,7 +27,7 @@
             }
 
             function createSubworker(subworkerId) {
-                var subworker = new Worker('worker.js');
+                var subworker = new Worker('../../../../_common/lodash/worker.js');
 
                 subworkers[subworkerId] = subworker;
                 subworker.addEventListener('message', function (event) {

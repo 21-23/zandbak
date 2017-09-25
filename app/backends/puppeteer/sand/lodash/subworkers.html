@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        (function() {
+            var subworkerCounter = 0;
+            var subworkers = {};
+
+            function createSubworker(subworkerId) {
+                return new Promise(function (resolve) {
+                    var subworker = new Worker('../../../_common/lodash/worker.js');
+
+                    subworkers[subworkerId] = subworker;
+
+                    subworker.addEventListener('message', function onWorkerCreated(event) {
+                        if (event.data.type !== 'wrk::created') {
+                            return;
+                        }
+
+                        subworker.removeEventListener('message', onWorkerCreated);
+                        resolve({
+                            path: [subworkerId].concat(event.data.payload.path)
+                        });
+                    });
+
+                    subworker.postMessage({
+                        type: 'wrk:>init',
+                        payload: {
+                            path: [subworkerId]
+                        }
+                    });
+                });
+            }
+
+            function fillSubworker(subworker, subworkerId, payload) {
+                return new Promise(function (resolve) {
+                    subworker.addEventListener('message', function onWorkerFilled(event) {
+                        if (event.data.type !== 'wrk::filled') {
+                            return;
+                        }
+
+                        subworker.removeEventListener('message', onWorkerFilled);
+                        resolve({
+                            path: [subworkerId].concat(event.data.payload.path),
+                            fillerId: event.data.payload.fillerId
+                        });
+                    });
+
+                    subworker.postMessage({
+                        type: 'wrk:>fill',
+                        payload: {
+                            path: payload.path,
+                            fillerId: payload.fillerId,
+                            content: payload.content
+                        }
+                    });
+                });
+            }
+
+            function exec(subworker, subworkerId, payload) {
+                return new Promise(function (resolve) {
+                    subworker.addEventListener('message', function onExecDone(event) {
+                        if (event.data.type !== 'wrk::done') {
+                            return;
+                        }
+
+                        subworker.removeEventListener('message', onExecDone);
+                        event.data.payload.path = [subworkerId].concat(event.data.payload.path)
+                        resolve(event.data.payload);
+                    });
+
+                    subworker.postMessage({
+                        type: 'wrk:>exec',
+                        payload: payload
+                    });
+                });
+            }
+
+            window.init = function (payload) {
+                var promises = [];
+
+                for (var counter = 0; counter < payload.subworkersCount; counter++) {
+                    promises.push(createSubworker(++subworkerCounter));
+                }
+
+                return Promise.all(promises);
+            };
+
+            window.fill = function (payload) {
+                var subworkerId = payload.path.shift();
+                var subworker = subworkers[subworkerId];
+
+                return fillSubworker(subworker, subworkerId, payload);
+            }
+
+            window.exec = function (payload) {
+                var subworkerId = payload.path.shift();
+                var subworker = subworkers[subworkerId];
+
+                return exec(subworker, subworkerId, payload);
+            }
+
+            window.reloadWorker = function (payload) {
+                var subworkerId = payload.path.shift();
+                var subworker = subworkers[subworkerId];
+
+                if (payload.path.length !== 0) {
+                    // TODO: wait for reload of sub-sub-worker
+                    return subworker.postMessage({
+                        type: 'wrk:>reload',
+                        payload: {
+                            path: payload.path,
+                        }
+                    });
+                }
+
+                subworker.terminate();
+                subworkers[subworkerId] = undefined;
+
+                // create new subworker
+                return createSubworker(subworkerId);
+            };
+        })();
+    </script>
+</head>
+<body>
+</body>
+</html>

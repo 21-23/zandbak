@@ -40,13 +40,15 @@ function createWorker(state, options) {
                 // this callback should be always attached
                 // in case of reload - worker should pass through the whole process
                 return page.evaluate(REMOTE_FUNCTION.init, options)
-                    .then((response) => {
-                        state.emitter.emit('message', {
-                            type: contract.messages.WORKER_STATE,
-                            payload: {
-                                state: 'empty',
-                                path: [workerId].concat(response.path),
-                            }
+                    .then((responses) => {
+                        responses.forEach((response) => {
+                            state.emitter.emit('message', {
+                                type: contract.messages.WORKER_STATE,
+                                payload: {
+                                    state: 'empty',
+                                    path: [workerId].concat(response.path),
+                                }
+                            });
                         });
                     })
                     .catch((err) => {

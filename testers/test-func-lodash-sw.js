@@ -14,14 +14,20 @@ const sandbox = zandbak({
         },
     },
 }, {
-    type: 'electron',
+    // type: 'electron',
+    // options: {
+    //     sand: 'lodash/subworkers', // css | lodash | lodash/subworkers
+    //     showDevTools: false,
+    //     browserWindow: { width: 400, height: 400, show: false },
+    //     urlOptions: { userAgent: '_qd-ua' },
+    //     logLevel: '+error,+perf',
+    // },
+    type: 'puppeteer',
     options: {
-        sand: 'lodash/subworkers', // css | lodash | lodash/subworkers
-        showDevTools: false,
-        browserWindow: { width: 400, height: 400, show: false },
-        urlOptions: { userAgent: '_qd-ua' },
+        sand: 'lodash/subworkers',
         logLevel: '+error,+perf',
-    },
+        launch: { headless: true, dumpio: true, args: ['--allow-file-access-from-files'] }
+    }
 });
 
 const rounds = [

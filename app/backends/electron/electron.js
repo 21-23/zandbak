@@ -25,6 +25,7 @@ module.exports = function electron(options, logger) {
     const electronApp = createElectronApp(options);
     const instance = contract.instance(TYPE, electronApp);
 
+    // TODO: split "data" to lines
     function logPerf(data) {
         // treat all logs from electron app as perf
         logger.perf(LOG_PRFIX, data.toString());

@@ -111,7 +111,7 @@ sandbox.resetWith(rounds[0]);
 setTimeout(() => {
     sandbox
         .exec({ id: 'task-0', input: '.parent' })
-        .exec({ id: 'task-1', input: 'span' })
+        .exec({ id: 'task-1', input: '[data-qdid="0"]' })
         .exec({ id: 'task-2', input: 'span' });
 }, 1000);
 setTimeout(() => {

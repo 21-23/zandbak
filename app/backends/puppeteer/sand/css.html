@@ -15,7 +15,8 @@
             var content = {
                 input: '',
                 expected: undefined,
-                expectedLength: undefined
+                expectedLength: undefined,
+                qdidAttr: ''
             };
 
             function evaluate(task, puzzleScope) {
@@ -27,13 +28,20 @@
                     var result = new Array(nodesLength);
 
                     while (++index < nodesLength) {
-                        result[index] = nodes[index].dataset['qdid'];
+                        result[index] = nodes[index].getAttribute(content.qdidAttr);
                     }
 
                     return [null, result];
                 } catch (e) {
                     return [e, null];
                 }
+            }
+
+            function randomizeQdidAttribute(puzzleScope, qdidAttr) {
+                puzzleScope.querySelectorAll('[data-qdid]').forEach((node) => {
+                    node.setAttribute(qdidAttr, node.dataset.qdid);
+                    node.removeAttribute('data-qdid');
+                });
             }
 
             window.init = function (payload) {
@@ -44,7 +52,8 @@
                 content = {
                     input: '',
                     expected: undefined,
-                    expectedLength: undefined
+                    expectedLength: undefined,
+                    qdidAttr: 'qdid-' + ~~(Math.random() * 100000)
                 };
 
                 if (payload.content) {
@@ -55,6 +64,7 @@
                 }
 
                 scope.innerHTML = content.input;
+                randomizeQdidAttribute(scope, content.qdidAttr);
 
                 payload.content = undefined; // no need to transfer back the filler
 

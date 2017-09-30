@@ -21,6 +21,7 @@ const filler = {
         reloadWorkers: false,
         refillWorkers: false,
         taskTimeoutMs: 1500, // should be reasonably big (seconds) as time out forces worker reload (too expensive)
+        inputCopies: 30, // optional parameter; amount of input initial copies
     }
 };
 const task = { id: 'task-0', input: 'map(() => { return null; })' }

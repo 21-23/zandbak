@@ -134,14 +134,14 @@ function createWorker(options) {
     webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
 }
 
-function fillWorker({ path, content, fillerId }) {
+function fillWorker({ path, content, fillerId, options }) {
     const workerId = path.shift();
     const win = BrowserWindow.fromId(workerId);
     const webContents = win.webContents;
 
     webContents.send('message', {
         type: OUTCOMING_WORKER_COMMANDS.fill,
-        payload: { path, fillerId, content },
+        payload: { path, fillerId, content, options },
     });
 }
 

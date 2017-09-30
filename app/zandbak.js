@@ -172,6 +172,7 @@ function onWorkerEmpty(path, { backend, filler, workers }) {
             path,
             content: filler.content,
             fillerId: filler.fillerId,
+            options: filler.options,
         }
     });
 }
@@ -188,6 +189,7 @@ function onWorkerReady(path, workerFillerId, state) {
                 path,
                 content: filler.content,
                 fillerId: filler.fillerId,
+                options: filler.options,
             }
         });
     }
@@ -252,6 +254,7 @@ function onJobDone(payload, state) {
                 path: worker.path,
                 content: filler.content,
                 fillerId: filler.fillerId,
+                options: filler.options,
             }
         });
     }

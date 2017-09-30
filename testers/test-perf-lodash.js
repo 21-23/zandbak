@@ -42,6 +42,7 @@ const rounds = [
             reloadWorkers: false,
             refillWorkers: false,
             taskTimeoutMs: 500,
+            inputCopies: 600,
         }
     },
     {
@@ -53,6 +54,7 @@ const rounds = [
             reloadWorkers: false,
             refillWorkers: false,
             taskTimeoutMs: 500,
+            inputCopies: 600,
         }
     }
 ];

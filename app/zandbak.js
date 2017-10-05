@@ -45,13 +45,13 @@ function destroyValidators(validators) {
     });
 }
 
-function validate(input, validators) {
+function validate(input, filler, validators) {
     let error = null;
     let counter = 0;
     const validatorsCount = validators.length;
 
     while (counter < validatorsCount) {
-        error = validators[counter].validate(input);
+        error = validators[counter].validate(input, filler);
 
         if (error) {
             // if there's an error from validator - break the loop and return the error
@@ -339,7 +339,7 @@ module.exports = function zandbak(options, backendOptions) {
             return instance;
         },
         exec: (task) => {
-            const validationError = validate(task.input, validators);
+            const validationError = validate(task.input, state.filler, validators);
 
             if (validationError) {
                 emitter.emit('solved', { task, error: validationError });

@@ -4,7 +4,9 @@ const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
     logLevel: '+error,+info,+perf',
-    validators: [],
+    validators: [
+        { name: 'banned-chars' },
+    ],
     workers: {
         count: 2,
         options: {},
@@ -33,6 +35,7 @@ const rounds = [
             reloadWorkers: false,
             refillWorkers: false,
             taskTimeoutMs: 500,
+            banned: ['s', ':']
         }
     },
     {
@@ -65,6 +68,7 @@ const rounds = [
             reloadWorkers: false,
             refillWorkers: false,
             taskTimeoutMs: 500,
+            banned: ['i']
         }
     }
 ];
@@ -79,7 +83,9 @@ function onTaskSolved({ task, error, result, correct }) {
         case 'task-1':
             return assert.equal(correct, 'incorrect');
         case 'task-2':
-            return assert.equal(correct, 'incorrect');
+            assert.ok(error);
+            assert.ifError(result);
+            return;
         case 'task-3':
             assert.ok(error);
             assert.ifError(result);
@@ -93,7 +99,9 @@ function onTaskSolved({ task, error, result, correct }) {
         case 'task-7':
             return assert.equal(correct, 'correct');
         case 'task-8':
-            return assert.equal(correct, 'incorrect');
+            assert.ok(error);
+            assert.ifError(result);
+            return;
         case 'task-9':
             return assert.equal(correct, 'incorrect');
         case 'task-10':
@@ -132,7 +140,7 @@ setTimeout(() => {
 setTimeout(() => {
     sandbox
         .exec({ id: 'task-7', input: 'b' })
-        .exec({ id: 'task-8', input: 'b b' })
+        .exec({ id: 'task-8', input: 'b i' })
         .exec({ id: 'task-9', input: 'b b b b' })
         .exec({ id: 'task-10', input: 'nth-child(' });
 }, 7000);

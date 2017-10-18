@@ -12,6 +12,7 @@
     "test:perf:lodash": "node ./testers/test-perf-lodash.js",
     "test:perf:lodash:sw": "node ./testers/test-perf-lodash-sw.js",
     "test:comparator": "node ./testers/test-comparator.js",
+    "test:validator": "node ./testers/test-validator.js",
     "lint": "eslint ./app",
     "precommit": "lint-staged"
   },

@@ -46,6 +46,7 @@ const bannedCharsTestData = [
         ['.selebt', false],
         ['a .select', false],
         ['.select b', false],
+        ['.select ⛱', true],
     ]],
     [{ options: { filler: { bannedCharacters: [] } } }, [
         ['.select', true],
@@ -54,19 +55,23 @@ const bannedCharsTestData = [
         ['a > b', true],
         ['span ~~ p', true],
     ]],
-    [{ options: { filler: { bannedCharacters: ['.', '~', '\\', '|', '>'] } } }, [
+    [{ options: { filler: { bannedCharacters: ['.', '~', '\\', '|', '>', '+', '*', ' '] } } }, [
         ['select', true],
+        ['div p', false],
         ['.select', false],
         ['select ~ div', false],
         ['a \\ div', false],
         ['p | div', false],
         ['p > div', false],
         ['p /~ div', false],
+        ['p + div', false],
+        ['a * span', false],
     ]],
 ];
 
 bannedCharsTestData.forEach((testInput) => {
     const filler = testInput[0];
+
     testInput[1].forEach((input) => {
         if (input[1]) {
             assert.equal(bannedChars.validate(input[0], filler), null, input[0]);

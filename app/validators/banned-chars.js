@@ -1,4 +1,5 @@
 const symbol = Symbol('banned-chars-regex');
+const escapeSymbolsRegex = /[.*+?^${}()|[\]\\]/g; // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
 
 function getRegex(fillerOptions) {
     let regex = fillerOptions[symbol];
@@ -7,7 +8,11 @@ function getRegex(fillerOptions) {
         return regex;
     }
 
-    const chars = fillerOptions.bannedCharacters.join('|');
+    const chars = fillerOptions.bannedCharacters
+        .map((char) => {
+            return char.replace(escapeSymbolsRegex, '\\$&');
+        })
+        .join('|');
 
     regex = new RegExp(`(${chars})`, 'i');
     fillerOptions[symbol] = regex;

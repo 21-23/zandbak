@@ -1,4 +1,4 @@
-// obj is always our VALID SORTED expected array
+// arr is always our VALID SORTED expected array
 // oth is always array that could be sorted by native `sort` (e.g. array of strings)
 const areSameArrays = function (arr, oth, arrLength) {
     if (oth.length !== arrLength) {

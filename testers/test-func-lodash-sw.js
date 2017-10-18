@@ -14,20 +14,14 @@ const sandbox = zandbak({
         },
     },
 }, {
-    // type: 'electron',
-    // options: {
-    //     sand: 'lodash/subworkers', // css | lodash | lodash/subworkers
-    //     showDevTools: false,
-    //     browserWindow: { width: 400, height: 400, show: false },
-    //     urlOptions: { userAgent: '_qd-ua' },
-    //     logLevel: '+error,+perf',
-    // },
-    type: 'puppeteer',
+    type: 'electron',
     options: {
-        sand: 'lodash/subworkers',
+        sand: 'lodash/subworkers', // css | lodash | lodash/subworkers
+        showDevTools: false,
+        browserWindow: { width: 400, height: 400, show: false },
+        urlOptions: { userAgent: '_qd-ua' },
         logLevel: '+error,+perf',
-        launch: { headless: true, dumpio: true, args: ['--allow-file-access-from-files'] }
-    }
+    },
 });
 
 const rounds = [
@@ -48,11 +42,14 @@ const rounds = [
             ]
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 50,
-            inputCopies: 200,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 50,
+                inputCopies: 200,
+            },
+            filler: { },
+        },
     },
     {
         content: {
@@ -63,11 +60,14 @@ const rounds = [
             expected: '"DC"'
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 50,
-            inputCopies: 300,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 50,
+                inputCopies: 300,
+            },
+            filler: { },
+        },
     }
 ];
 

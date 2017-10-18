@@ -6,7 +6,7 @@ const createLogger = require('./logger');
 const { JOB_STATE, WORKER_STATE, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, serializePath, hrtimeToMs } = require('./helpers');
 const contract = require('./backends/contract');
 
-const emptyFiller = createFiller('filler-empty', null, { reloadWorkers: true });
+const emptyFiller = createFiller('filler-empty', null, { sandbox: { reloadWorkers: true } });
 
 
 function createBackend({ type, options }, logger) {
@@ -72,10 +72,10 @@ function executeJob(job, worker, state) {
     job.workerPath = worker.path;
     job.state = JOB_STATE.inProgress;
 
-    if (filler.options.taskTimeoutMs) {
+    if (filler.options.sandbox.taskTimeoutMs) {
         job.timerId = setTimeout(() => {
             onJobTimeout(job, worker, state);
-        }, filler.options.taskTimeoutMs);
+        }, filler.options.sandbox.taskTimeoutMs);
     }
 
     logger.perf('Task waiting time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
@@ -172,7 +172,7 @@ function onWorkerEmpty(path, { backend, filler, workers }) {
             path,
             content: filler.content,
             fillerId: filler.fillerId,
-            options: filler.options,
+            options: filler.options.sandbox,
         }
     });
 }
@@ -189,7 +189,7 @@ function onWorkerReady(path, workerFillerId, state) {
                 path,
                 content: filler.content,
                 fillerId: filler.fillerId,
-                options: filler.options,
+                options: filler.options.sandbox,
             }
         });
     }
@@ -236,7 +236,7 @@ function onJobDone(payload, state) {
         logger.perf('Task full time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
     }
 
-    if (filler.options.reloadWorkers) {
+    if (filler.options.sandbox.reloadWorkers) {
         worker.state = WORKER_STATE.creating;
         return backend.send({
             type: contract.commands.RELOAD_WORKER,
@@ -246,7 +246,7 @@ function onJobDone(payload, state) {
         });
     }
 
-    if (invalidFiller || filler.options.refillWorkers) {
+    if (invalidFiller || filler.options.sandbox.refillWorkers) {
         worker.state = WORKER_STATE.filling;
         return backend.send({
             type: contract.commands.FILL_WORKER,
@@ -254,7 +254,7 @@ function onJobDone(payload, state) {
                 path: worker.path,
                 content: filler.content,
                 fillerId: filler.fillerId,
-                options: filler.options,
+                options: filler.options.sandbox,
             }
         });
     }

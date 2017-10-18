@@ -39,11 +39,14 @@ const rounds = [
             ]
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 500,
-            inputCopies: 600,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 500,
+                inputCopies: 600,
+            },
+            filler: { },
+        },
     },
     {
         content: {
@@ -51,11 +54,14 @@ const rounds = [
             list: ['W', 'A', 'S', 'D']
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 500,
-            inputCopies: 600,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 500,
+                inputCopies: 600,
+            },
+            filler: { },
+        },
     }
 ];
 

@@ -1,24 +1,28 @@
-function getRegex(filler) {
-    let regex = filler.options[Symbol.for('banned-chars-regex')];
+const symbol = Symbol('banned-chars-regex');
+
+function getRegex(fillerOptions) {
+    let regex = fillerOptions[symbol];
 
     if (regex) {
         return regex;
     }
 
-    const chars = filler.options.banned.join('|');
+    const chars = fillerOptions.bannedCharacters.join('|');
 
     regex = new RegExp(`(${chars})`, 'i');
-    filler.options[Symbol.for('banned-chars-regex')] = regex;
+    fillerOptions[symbol] = regex;
 
     return regex;
 }
 
 exports.validate = function bannedCharsValidate(input, filler) {
-    if (!filler.options.banned) {
+    const fillerOptions = filler.options.filler;
+
+    if (!fillerOptions.bannedCharacters || !fillerOptions.bannedCharacters.length) {
         return null;
     }
 
-    if (getRegex(filler).test(input)) {
+    if (getRegex(fillerOptions).test(input)) {
         return 'Banned characters are not allowed';
     }
 

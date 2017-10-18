@@ -18,10 +18,15 @@ const filler = {
         { name: 'Johnie', surname: 'Walker', age: 20 },
     ],
     options: {
-        reloadWorkers: false,
-        refillWorkers: false,
-        taskTimeoutMs: 1500, // should be reasonably big (seconds) as time out forces worker reload (too expensive)
-        inputCopies: 30, // optional parameter; amount of input initial copies
+        sandbox: {
+            reloadWorkers: false,
+            refillWorkers: false,
+            taskTimeoutMs: 1500, // should be reasonably big (seconds) as time out forces worker reload (too expensive)
+            inputCopies: 30, // optional parameter; amount of input initial copies
+        },
+        filler: {
+            // filler options, e.g. bannedCharacters
+        },
     }
 };
 const task = { id: 'task-0', input: 'map(() => { return null; })' }
@@ -91,15 +96,17 @@ const sandbox = zandbak({
     logLevel: '+error,+info,+perf',
     validators: [],
     workers: {
-        count: 2,
-        options: {},
+        count: 1,
+        options: {
+            subworkersCount: 10,
+        },
     },
 }, {
     type: 'puppeteer',
     options: {
-        sand: 'css',
+        sand: 'lodash/subworkers',
         logLevel: '+error,+perf',
-        launch: { headless: true, dumpio: true }
+        launch: { headless: true, dumpio: true, args: ['--allow-file-access-from-files'] }
     }
 });
 ```

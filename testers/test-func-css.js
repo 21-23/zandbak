@@ -9,7 +9,9 @@ const sandbox = zandbak({
     ],
     workers: {
         count: 2,
-        options: {},
+        options: {
+            subworkersCount: 0,
+        },
     },
 }, {
     type: 'electron',
@@ -32,11 +34,15 @@ const rounds = [
             expected: ['0'] // no need to parse qdid
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 500,
-            banned: ['s', ':']
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 500,
+            },
+            filler: {
+                bannedCharacters: ['s', ':'],
+            },
+        },
     },
     {
         content: {
@@ -47,10 +53,15 @@ const rounds = [
             expected: '["2"]'
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 500,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 500,
+            },
+            filler: {
+                bannedCharacters: [],
+            },
+        },
     },
     {
         content: {
@@ -65,12 +76,16 @@ const rounds = [
             expected: '["2", "1", "0", "3"]'
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 500,
-            banned: ['i']
-        }
-    }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 500,
+            },
+            filler: {
+                bannedCharacters: ['i'],
+            },
+        },
+    },
 ];
 
 

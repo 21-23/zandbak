@@ -42,11 +42,14 @@ const rounds = [
             ]
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 50,
-            inputCopies: 500,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 50,
+                inputCopies: 500,
+            },
+            filler: { },
+        },
     },
     {
         content: {
@@ -57,11 +60,14 @@ const rounds = [
             expected: '"DC"'
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 50,
-            inputCopies: 500,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 50,
+                inputCopies: 500,
+            },
+            filler: { },
+        },
     }
 ];
 

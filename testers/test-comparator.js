@@ -4,8 +4,8 @@ const _isEqual = require('lodash.isequal'); // eslint-disable-line import/no-ext
 
 const { hrtimeToMs } = require('../app/helpers');
 
-const isEqual = require('../app/backends/electron/e-app/sand/isEqual');
-const areSameArrays = require('../app/backends/electron/e-app/sand/areSameArrays');
+const isEqual = require('../app/backends/_common/isEqual');
+const areSameArrays = require('../app/backends/_common/areSameArrays');
 
 const testData = [
     [null, null, true],

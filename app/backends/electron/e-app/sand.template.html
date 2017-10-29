@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        (function() {
+            var ipcRenderer = require('electron').ipcRenderer;
+
+            function onWorkerInit(payload) {
+                ipcRenderer.send('wrk::created', { path: [] });
+            }
+
+            function onWorkerFill(payload) {
+                payload.content = undefined; // no need to transfer back the filler
+                ipcRenderer.send('wrk::filled', payload);
+            }
+
+            function onWorkerExec(payload) {
+                // the original message should be ready to accept 3 new props:
+                // - error
+                // - result
+                // - correct
+                payload.error = undefined;
+                payload.result = {};
+                payload.correct = 'correct';
+                ipcRenderer.send('wrk::done', payload);
+            }
+
+            function onWorkerReload(payload) {
+                ipcRenderer.send('wrk::created', { path: [] });
+            }
+
+            ipcRenderer.on('message', function (event, message) {
+                switch (message.type) {
+                    case 'wrk:>init':
+                        return onWorkerInit(message.payload);
+                    case 'wrk:>fill':
+                        return onWorkerFill(message.payload);
+                    case 'wrk:>exec':
+                        return onWorkerExec(message.payload);
+                    case 'wrk:>reload':
+                        return onWorkerReload(message.payload);
+                    default:
+                        console.error('Unknown message', message);
+
+                }
+            });
+        })();
+    </script>
+</head>
+<body>
+</body>
+</html>

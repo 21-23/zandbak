@@ -12,6 +12,7 @@
     "test:perf:lodash": "node ./testers/test-perf-lodash.js",
     "test:perf:lodash:sw": "node ./testers/test-perf-lodash-sw.js",
     "test:comparator": "node ./testers/test-comparator.js",
+    "test:validator": "node ./testers/test-validator.js",
     "lint": "eslint ./app",
     "precommit": "lint-staged"
   },
@@ -23,9 +24,10 @@
   "license": "LGPL-3.0",
   "private": true,
   "dependencies": {
-    "electron": "v1.7.5",
+    "electron": "1.7.6",
     "esprima": "4.0.0",
-    "lodash.uniqueid": "^4.0.1"
+    "lodash.uniqueid": "^4.0.1",
+    "puppeteer": "0.10.2"
   },
   "devDependencies": {
     "eslint": "^3.12.2",

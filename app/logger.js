@@ -1,5 +1,5 @@
-function parseOptions(options) {
-    const levels = options.split(',');
+function parseLevel(level) {
+    const levels = level.split(',');
 
     return levels.reduce((logOptions, levelStr) => {
         if (levelStr.startsWith('+')) {
@@ -14,9 +14,9 @@ function parseOptions(options) {
     }, {});
 }
 
-function conditionalLog(level, levels, ...args) {
+function conditionalLog(level, levels, prefix, ...args) {
     if (levels[level]) {
-        console.log(`[${Date.now()}] [zandbak]`, ...args);
+        console.log(`[${prefix}] ${Date.now()}`, ...args);
     }
 }
 
@@ -27,23 +27,26 @@ function perfLog(level, levels, buffer, ...args) {
     }
 }
 
-function flush(buffer) {
+function flush(prefix, buffer) {
     if (!buffer.length) {
         return;
     }
 
+    const fullPrefix = `[${prefix}][perf]`;
+
     while (buffer.length) {
-        console.log('[zandbak][perf]', ...buffer.shift());
+        console.log(fullPrefix, ...buffer.shift());
     }
 }
 
-module.exports = function logger(options) {
-    const levels = parseOptions(options);
+module.exports = function logger(level, prefix = '') {
+    const levels = parseLevel(level);
     const perfBuffer = [];
 
     return {
         perf: perfLog.bind(null, 'perf', levels, perfBuffer),
-        flush: flush.bind(null, perfBuffer),
-        error: conditionalLog.bind(null, 'error', levels),
+        flush: flush.bind(null, prefix, perfBuffer),
+        error: conditionalLog.bind(null, 'error', levels, prefix),
+        info: conditionalLog.bind(null, 'info', levels, prefix),
     };
 };

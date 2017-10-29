@@ -1,35 +1,28 @@
-const path = require('path');
-const proc = require('child_process');
 const EventEmitter = require('events');
 
 const _uniqueid = require('lodash.uniqueid');
-const electron = require('electron');
 
 const createLogger = require('./logger');
-
 const { JOB_STATE, WORKER_STATE, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, serializePath, hrtimeToMs } = require('./helpers');
+const contract = require('./backends/contract');
 
-const eAppPath = path.join(__dirname, 'e-app', 'e-app.js');
-const emptyFiller = createFiller('filler-empty', null, { reloadWorkers: true });
+const emptyFiller = createFiller('filler-empty', null, { sandbox: { reloadWorkers: true } });
 
 
-function createEAppProc(options) {
-    const child = proc.spawn(
-        electron,
-        [eAppPath].concat(JSON.stringify(options || {})),
-        {
-            stdio: [null, process.stdout, process.stderr, 'ipc']
-        }
-    );
+function createBackend({ type, options }, logger) {
+    // require backend lazily to avoid redundand memory usage
+    const backendPath = `./backends/${type}/${type}`;
+    const backend = require(backendPath);
 
-    return child;
+    return backend(options, logger);
 }
 
-function destroyEAppProc(eApp) {
-    eApp.removeAllListeners('message');
+function destroyBackend(eApp) {
+    eApp
+        .off('message')
+        .off('error');
 
-    // potentially, we can rely on 'e-app::destroy' but who knows...
-    eApp.kill('SIGINT');
+    eApp.destroy();
 }
 
 function createValidators(options) {
@@ -52,13 +45,13 @@ function destroyValidators(validators) {
     });
 }
 
-function validate(input, validators) {
+function validate(input, filler, validators) {
     let error = null;
     let counter = 0;
     const validatorsCount = validators.length;
 
     while (counter < validatorsCount) {
-        error = validators[counter].validate(input);
+        error = validators[counter].validate(input, filler);
 
         if (error) {
             // if there's an error from validator - break the loop and return the error
@@ -79,17 +72,17 @@ function executeJob(job, worker, state) {
     job.workerPath = worker.path;
     job.state = JOB_STATE.inProgress;
 
-    if (filler.options.taskTimeoutMs) {
+    if (filler.options.sandbox.taskTimeoutMs) {
         job.timerId = setTimeout(() => {
             onJobTimeout(job, worker, state);
-        }, filler.options.taskTimeoutMs);
+        }, filler.options.sandbox.taskTimeoutMs);
     }
 
     logger.perf('Task waiting time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
 
     worker.state = WORKER_STATE.busy;
     backend.send({
-        type: 'e-app:>exec',
+        type: contract.commands.EXEC,
         payload: {
             path: worker.path,
             jobId: job.jobId,
@@ -145,12 +138,12 @@ function tryExecuteJob(state, preferredWorker) {
 
 // ====================== Workers ======================
 
-function createWorkers(options, amount, { backend }) {
+function createWorkers(amount, options, { backend }) {
     let counter = 0;
 
     while (++counter <= amount) {
         backend.send({
-            type: 'e-app:>create-worker',
+            type: contract.commands.CREATE_WORKER,
             payload: options,
         });
     }
@@ -174,11 +167,12 @@ function onWorkerEmpty(path, { backend, filler, workers }) {
 
     worker.state = WORKER_STATE.filling;
     backend.send({
-        type: 'e-app:>fill-worker',
+        type: contract.commands.FILL_WORKER,
         payload: {
             path,
             content: filler.content,
             fillerId: filler.fillerId,
+            options: filler.options.sandbox,
         }
     });
 }
@@ -190,11 +184,12 @@ function onWorkerReady(path, workerFillerId, state) {
     if (workerFillerId !== filler.fillerId) {
         worker.state = WORKER_STATE.filling;
         return backend.send({
-            type: 'e-app:>fill-worker',
+            type: contract.commands.FILL_WORKER,
             payload: {
                 path,
                 content: filler.content,
                 fillerId: filler.fillerId,
+                options: filler.options.sandbox,
             }
         });
     }
@@ -241,24 +236,25 @@ function onJobDone(payload, state) {
         logger.perf('Task full time:', hrtimeToMs(process.hrtime(job.hrtime)), 'ms');
     }
 
-    if (filler.options.reloadWorkers) {
+    if (filler.options.sandbox.reloadWorkers) {
         worker.state = WORKER_STATE.creating;
         return backend.send({
-            type: 'e-app:>reload-worker',
+            type: contract.commands.RELOAD_WORKER,
             payload: {
                 path: worker.path,
             }
         });
     }
 
-    if (invalidFiller || filler.options.refillWorkers) {
+    if (invalidFiller || filler.options.sandbox.refillWorkers) {
         worker.state = WORKER_STATE.filling;
         return backend.send({
-            type: 'e-app:>fill-worker',
+            type: contract.commands.FILL_WORKER,
             payload: {
                 path: worker.path,
                 content: filler.content,
                 fillerId: filler.fillerId,
+                options: filler.options.sandbox,
             }
         });
     }
@@ -279,7 +275,7 @@ function onJobTimeout(job, worker, { backend, emitter, jobs, logger }) {
 
     worker.state = WORKER_STATE.creating;
     backend.send({
-        type: 'e-app:>reload-worker',
+        type: contract.commands.RELOAD_WORKER,
         payload: {
             path: worker.path,
         }
@@ -301,7 +297,7 @@ function resetWith({ backend, emitter, jobs, logger, workers }) {
     workers.forEach((worker) => {
         worker.state = WORKER_STATE.creating;
         backend.send({
-            type: 'e-app:>reload-worker',
+            type: contract.commands.RELOAD_WORKER,
             payload: {
                 path: worker.path,
             }
@@ -309,18 +305,19 @@ function resetWith({ backend, emitter, jobs, logger, workers }) {
     });
 }
 
-module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
+module.exports = function zandbak(options, backendOptions) {
+    const logger = createLogger(options.logLevel, 'zandbak');
     const state = {
-        backend: createEAppProc(eAppOptions),
+        backend: createBackend(backendOptions, logger),
         emitter: new EventEmitter(),
         filler: emptyFiller,
         jobs: new Map(),
-        logger: createLogger(zandbakOptions.logs),
+        logger,
         workers: new Map(),
     };
-    const { emitter, logger } = state;
+    const { emitter } = state;
 
-    let validators = createValidators(zandbakOptions.validators);
+    let validators = createValidators(options.validators);
 
     const instance = {
         resetWith: (newFiller) => {
@@ -334,10 +331,15 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
 
             logger.flush();
 
+            state.backend.send({
+                type: contract.commands.FLUSH,
+                payload: {}
+            });
+
             return instance;
         },
         exec: (task) => {
-            const validationError = validate(task.input, validators);
+            const validationError = validate(task.input, state.filler, validators);
 
             if (validationError) {
                 emitter.emit('solved', { task, error: validationError });
@@ -358,7 +360,7 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
             logger.flush();
 
             if (state.backend) {
-                destroyEAppProc(state.backend);
+                destroyBackend(state.backend);
                 state.backend = null;
             }
             if (validators) {
@@ -383,28 +385,29 @@ module.exports = function zandbak({ zandbakOptions, eAppOptions }) {
         }
     };
 
-    state.backend.on('message', (message) => {
-        switch (message.type) {
-            case 'e-app::ready':
-                return createWorkers(zandbakOptions.workerOptions, zandbakOptions.workersCount, state);
-            case 'e-app::wrk-state':
-                return onWorkerStateChange(message.payload, state);
-            case 'e-app::done':
-                return onJobDone(message.payload, state);
-            default:
-                logger.error('Unknown message from e-app', message);
-        }
-    });
-
-    state.backend.on('error', (error) => {
-        logger.error('Error in electron app', error);
-        emitter.emit('error', error);
-    });
+    state.backend
+        .on('message', (message) => {
+            switch (message.type) {
+                case contract.messages.READY:
+                    return createWorkers(options.workers.count, options.workers.options, state);
+                case contract.messages.WORKER_STATE:
+                    return onWorkerStateChange(message.payload, state);
+                case contract.messages.DONE:
+                    return onJobDone(message.payload, state);
+                default:
+                    logger.error('Unknown message from e-app', message);
+            }
+        }).on('error', (error) => {
+            logger.error('Error in backend app', error);
+            emitter.emit('error', error);
+        });
 
     process.on('uncaughtException', (error) => {
         logger.error('uncaughtException:', error);
         instance.destroy();
     });
+
+    logger.info('zandbak instance is created');
 
     return instance;
 };

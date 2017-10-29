@@ -87,7 +87,6 @@ const INCOMING_WORKER_EVENTS = {
     filled: 'wrk::filled',
     done: 'wrk::done',
 };
-// TODO: try single channel + different cmd types
 const OUTCOMING_WORKER_COMMANDS = {
     init: 'wrk:>init',
     fill: 'wrk:>fill',
@@ -101,7 +100,7 @@ const OUTCOMING_EVENTS = {
 };
 
 const args = JSON.parse(process.argv[2]);
-const { error, perf, flush } = eAppLogger(args.logs);
+const { error, perf, flush } = eAppLogger(args.logLevel);
 
 function destroy() {
     app.exit(0);
@@ -126,18 +125,24 @@ function createWorker(options) {
     }
 
     webContents.on('did-finish-load', () => {
-        webContents.send(OUTCOMING_WORKER_COMMANDS.init, options);
+        webContents.send('message', {
+            type: OUTCOMING_WORKER_COMMANDS.init,
+            payload: options,
+        });
     });
 
     webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
 }
 
-function fillWorker({ path, content, fillerId }) {
+function fillWorker({ path, content, fillerId, options }) {
     const workerId = path.shift();
     const win = BrowserWindow.fromId(workerId);
     const webContents = win.webContents;
 
-    webContents.send(OUTCOMING_WORKER_COMMANDS.fill, { path, fillerId, content });
+    webContents.send('message', {
+        type: OUTCOMING_WORKER_COMMANDS.fill,
+        payload: { path, fillerId, content, options },
+    });
 }
 
 function reloadWorker({ path }) {
@@ -148,7 +153,10 @@ function reloadWorker({ path }) {
     if (path.length !== 0) {
         // path is not empty => subworkers are used => it is up to subworkers
         //      to decide how to reload their subworkers
-        return webContents.send(OUTCOMING_WORKER_COMMANDS.reload, { path });
+        return webContents.send('message', {
+            type: OUTCOMING_WORKER_COMMANDS.reload,
+            payload: { path },
+        });
     }
 
     webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
@@ -158,7 +166,10 @@ function exec(payload) {
     // performance critical function; make it FTL;
     const win = BrowserWindow.fromId(payload.path.shift());
 
-    win.webContents.send(OUTCOMING_WORKER_COMMANDS.exec, payload);
+    win.webContents.send('message', {
+        type: OUTCOMING_WORKER_COMMANDS.exec,
+        payload,
+    });
 }
 
 process.on('message', ({ type, payload }) => {
@@ -233,5 +244,8 @@ ipcMain
     });
 
 app.on('ready', () => {
+    perf('e-app electron ready');
     process.send({ type: OUTCOMING_EVENTS.ready, payload: {} });
 });
+
+perf('e-app loaded');

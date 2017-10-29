@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="../../_common/lodash.js"></script>
+    <script>
+        this.zandbakWorker = true;
+    </script>
+    <script src="../../_common/isEqual.js"></script>
+</head>
+<body>
+    <script>
+        (function() {
+            var stub = {};
+            var stubFun = function() {};
+            var resultBackup = JSON.stringify('');
+            var content = {
+                input: [],
+                inputs: [],
+                expected: undefined,
+                hidden: [] // array of objects { input: {JSON}, expected: {JSON} }
+            };
+            var inputCopies = 200;
+            var _lodash = Object.freeze(_);
+
+            function evaluate(task, puzzleContent) {
+                try {
+                    var result = eval('(function(_, content, window, document, location, alert, $, global, setTimeout, setInterval, requestAnimationFrame, requestIdleCallback) {"use strict"; return _.chain(content).' + task.input + '.value()}).call(stub, _lodash, puzzleContent, stub, stub, stub, stubFun, stub, stub, stubFun, stubFun, stubFun, stubFun)');
+
+                    return [null, result];
+                } catch (e) {
+                    return [e, null];
+                }
+            }
+
+            function evaluateHidden(task, hidden) {
+                var index = -1;
+                var hiddenCount = hidden.length;
+
+                while (++index < hiddenCount) {
+                    var hiddenPuzzle = hidden[index];
+                    var puzzleContent = hiddenPuzzle.inputs.pop() || _.cloneDeep(hiddenPuzzle.input);
+                    var evalResult = evaluate(task, puzzleContent);
+
+                    if (evalResult[0]) {
+                        return false;
+                    }
+
+                    if (!isEqual(hiddenPuzzle.expected, evalResult[1])) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            window.init = function (payload) {
+                return [{ path: [] }];
+            };
+
+            window.fill = function (payload) {
+                var counter = -1;
+
+                content = {
+                    input: [],
+                    inputs: [],
+                    expected: undefined,
+                    hidden: []
+                };
+
+                if (payload.content) {
+                    content.input = typeof payload.content.input === 'string' ? JSON.parse(payload.content.input) : payload.content.input;
+                    content.expected = typeof payload.content.expected === 'string' ? JSON.parse(payload.content.expected) : payload.content.expected;
+
+                    counter = -1;
+                    while (++counter < inputCopies) {
+                        content.inputs.push(_.cloneDeep(content.input));
+                    }
+
+                    if (payload.content.hidden) {
+                        var hidden = payload.content.hidden;
+                        var index = -1;
+                        var hiddenCount = hidden.length;
+
+                        while (++index < hiddenCount) {
+                            var hiddenPuzzle = hidden[index];
+                            var hiddenContent = {
+                                input: typeof hiddenPuzzle.input === 'string' ? JSON.parse(hiddenPuzzle.input) : hiddenPuzzle.input,
+                                inputs: [],
+                                expected: typeof hiddenPuzzle.expected === 'string' ? JSON.parse(hiddenPuzzle.expected) : hiddenPuzzle.expected,
+                            }
+
+                            counter = -1;
+                            while (++counter < inputCopies) {
+                                hiddenContent.inputs.push(_.cloneDeep(hiddenContent.input));
+                            }
+
+                            content.hidden.push(hiddenContent);
+                        }
+                    }
+                }
+
+                payload.content = undefined; // no need to transfer back the filler
+
+                return payload;
+            };
+
+            window.reloadWorker = function () {
+                console.error('lodash sand does not support sub-workers');
+            };
+
+            window.exec = function (payload) {
+                var puzzleContent = content.inputs.pop() || _.cloneDeep(content.input);
+                var evalResult = evaluate(payload.task, puzzleContent);
+
+                if (evalResult[0]) {
+                    // error branch
+                    var e = evalResult[0];
+                    payload.error = (e && e.message || (e + ''));
+                } else {
+                    var result = evalResult[1];
+                    var resultStr = JSON.stringify(result);
+
+                    if (typeof resultStr === 'undefined') {
+                        resultStr = resultBackup; // undefined, function, Symbol are stringify-ed to undefined
+                    }
+                    payload.result = resultStr;
+
+                    if (isEqual(content.expected, result)) {
+                        if (evaluateHidden(payload.task, content.hidden)) {
+                            payload.correct = 'correct';
+                        } else {
+                            payload.correct = 'partial';
+                        }
+                    } else {
+                        payload.correct = 'incorrect';
+                    }
+                }
+
+                return payload;
+            };
+        })();
+    </script>
+</body>
+</html>

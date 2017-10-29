@@ -3,21 +3,25 @@ const assert = require('assert');
 const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
-    zandbakOptions: {
-        workersCount: 2,
-        workerOptions: {
+    logLevel: '+error,+info,+perf',
+    validators: [
+        { name: 'banned-chars' },
+    ],
+    workers: {
+        count: 2,
+        options: {
             subworkersCount: 0,
         },
-        logs: '+error,+perf',
-        validators: [],
     },
-    eAppOptions: {
+}, {
+    type: 'electron',
+    options: {
+        sand: 'css', // css | lodash | lodash/subworkers
+        logLevel: '+error,+perf',
         showDevTools: false,
         browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
-        sand: 'css', // sand = 'lodash' | 'css'
-        logs: '+error,+perf',
-    }
+    },
 });
 
 const rounds = [
@@ -30,10 +34,15 @@ const rounds = [
             expected: ['0'] // no need to parse qdid
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 500,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 500,
+            },
+            filler: {
+                bannedCharacters: ['s', ':'],
+            },
+        },
     },
     {
         content: {
@@ -44,10 +53,15 @@ const rounds = [
             expected: '["2"]'
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 500,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 500,
+            },
+            filler: {
+                bannedCharacters: [],
+            },
+        },
     },
     {
         content: {
@@ -62,11 +76,16 @@ const rounds = [
             expected: '["2", "1", "0", "3"]'
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 500,
-        }
-    }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 500,
+            },
+            filler: {
+                bannedCharacters: ['i'],
+            },
+        },
+    },
 ];
 
 
@@ -79,7 +98,9 @@ function onTaskSolved({ task, error, result, correct }) {
         case 'task-1':
             return assert.equal(correct, 'incorrect');
         case 'task-2':
-            return assert.equal(correct, 'incorrect');
+            assert.ok(error);
+            assert.ifError(result);
+            return;
         case 'task-3':
             assert.ok(error);
             assert.ifError(result);
@@ -93,7 +114,9 @@ function onTaskSolved({ task, error, result, correct }) {
         case 'task-7':
             return assert.equal(correct, 'correct');
         case 'task-8':
-            return assert.equal(correct, 'incorrect');
+            assert.ok(error);
+            assert.ifError(result);
+            return;
         case 'task-9':
             return assert.equal(correct, 'incorrect');
         case 'task-10':
@@ -111,7 +134,7 @@ sandbox.resetWith(rounds[0]);
 setTimeout(() => {
     sandbox
         .exec({ id: 'task-0', input: '.parent' })
-        .exec({ id: 'task-1', input: 'span' })
+        .exec({ id: 'task-1', input: '[data-qdid="0"]' })
         .exec({ id: 'task-2', input: 'span' });
 }, 1000);
 setTimeout(() => {
@@ -132,7 +155,7 @@ setTimeout(() => {
 setTimeout(() => {
     sandbox
         .exec({ id: 'task-7', input: 'b' })
-        .exec({ id: 'task-8', input: 'b b' })
+        .exec({ id: 'task-8', input: 'b i' })
         .exec({ id: 'task-9', input: 'b b b b' })
         .exec({ id: 'task-10', input: 'nth-child(' });
 }, 7000);

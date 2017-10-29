@@ -2,7 +2,7 @@
 /* global _, isEqual */
 /* eslint no-var: "warn", vars-on-top: "warn", object-shorthand: "warn", no-eval: "off", prefer-arrow-callback: "warn" */
 
-importScripts('./lodash.js');
+importScripts('lodash.js');
 
 var stub = {};
 var stubFun = function () {};
@@ -38,6 +38,9 @@ function fillWorker(payload) {
     if (payload.content) {
         content.input = typeof payload.content.input === 'string' ? JSON.parse(payload.content.input) : payload.content.input;
         content.expected = typeof payload.content.expected === 'string' ? JSON.parse(payload.content.expected) : payload.content.expected;
+        if (typeof payload.options.inputCopies === 'number') {
+            inputCopies = payload.options.inputCopies;
+        }
 
         counter = -1;
         while (++counter < inputCopies) {

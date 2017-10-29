@@ -3,23 +3,25 @@ const assert = require('assert');
 const zandbak = require('../app/zandbak');
 
 const sandbox = zandbak({
-    zandbakOptions: {
-        workersCount: 2,
-        workerOptions: {
+    logLevel: '+error,+info,+perf',
+    validators: [
+        { name: 'esprima' },
+    ],
+    workers: {
+        count: 2,
+        options: {
             subworkersCount: 0,
         },
-        logs: '+error,+perf',
-        validators: [
-            { name: 'esprima' }
-        ],
     },
-    eAppOptions: {
+}, {
+    type: 'electron',
+    options: {
+        sand: 'lodash', // css | lodash | lodash/subworkers
         showDevTools: false,
         browserWindow: { width: 400, height: 400, show: false },
         urlOptions: { userAgent: '_qd-ua' },
-        sand: 'lodash', // sand = 'lodash' | 'css' | 'lodash/subworkers'
-        logs: '+error,+perf',
-    }
+        logLevel: '+error,+perf',
+    },
 });
 
 const rounds = [
@@ -40,10 +42,14 @@ const rounds = [
             ]
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 50,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 50,
+                inputCopies: 200,
+            },
+            filler: { },
+        },
     },
     {
         content: {
@@ -54,10 +60,14 @@ const rounds = [
             expected: '"DC"'
         },
         options: {
-            reloadWorkers: false,
-            refillWorkers: false,
-            taskTimeoutMs: 50,
-        }
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 50,
+                inputCopies: 20,
+            },
+            filler: { },
+        },
     }
 ];
 

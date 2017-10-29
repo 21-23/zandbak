@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        this.zandbakWorker = true;
+    </script>
+    <script src="../../../_common/areSameArrays.js"></script>
+</head>
+<body>
+    <div id="qd-scope"></div>
+    <script>
+        (function() {
+            var scope = document.getElementById('qd-scope');
+            var resultBackup = JSON.stringify([]);
+            var content = {
+                input: '',
+                expected: undefined,
+                expectedLength: undefined,
+                qdidAttr: ''
+            };
+            var ipcRenderer = require('electron').ipcRenderer;
+
+            function evaluate(task, puzzleScope) {
+                // Throws a SYNTAX_ERR exception if the specified group of selectors is invalid.
+                try {
+                    var nodes = puzzleScope.querySelectorAll(task.input);
+                    var nodesLength = nodes.length;
+                    var index = -1;
+                    var result = new Array(nodesLength);
+
+                    while (++index < nodesLength) {
+                        result[index] = nodes[index].getAttribute(content.qdidAttr);
+                    }
+
+                    return [null, result];
+                } catch (e) {
+                    return [e, null];
+                }
+            }
+
+            function randomizeQdidAttribute(puzzleScope, qdidAttr) {
+                puzzleScope.querySelectorAll('[data-qdid]').forEach((node) => {
+                    node.setAttribute(qdidAttr, node.dataset.qdid);
+                    node.removeAttribute('data-qdid');
+                });
+            }
+
+            function onWorkerInit() {
+                ipcRenderer.send('wrk::created', { path: [] });
+            }
+
+            function onWorkerFill(payload) {
+                content = {
+                    input: '',
+                    expected: undefined,
+                    expectedLength: undefined,
+                    qdidAttr: 'qdid-' + ~~(Math.random() * 100000)
+                };
+
+                if (payload.content) {
+                    content.input = payload.content.input;
+                    content.expected = typeof payload.content.expected === 'string' ? JSON.parse(payload.content.expected) : payload.content.expected;
+                    content.expected.sort();
+                    content.expectedLength = content.expected.length;
+                }
+
+                scope.innerHTML = content.input;
+                randomizeQdidAttribute(scope, content.qdidAttr);
+
+                payload.content = undefined; // no need to transfer back the filler
+
+                ipcRenderer.send('wrk::filled', payload);
+            }
+
+            function onWorkerExec(payload) {
+                var evalResult = evaluate(payload.task, scope);
+
+                if (evalResult[0]) {
+                    // error branch
+                    var e = evalResult[0];
+                    payload.error = (e && e.message || (e + ''));
+                } else {
+                    var result = evalResult[1];
+
+                    payload.result = result;
+
+                    if (areSameArrays(content.expected, result, content.expectedLength)) {
+                        payload.correct = 'correct';
+                    } else {
+                        payload.correct = 'incorrect';
+                    }
+                }
+
+                ipcRenderer.send('wrk::done', payload);
+            }
+
+            ipcRenderer.on('message', function (event, message) {
+                switch (message.type) {
+                    case 'wrk:>init':
+                        return onWorkerInit();
+                    case 'wrk:>fill':
+                        return onWorkerFill(message.payload);
+                    case 'wrk:>exec':
+                        return onWorkerExec(message.payload);
+                    default:
+                        console.error('Unknown message', message);
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

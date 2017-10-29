@@ -16,7 +16,7 @@ function parseOptions(options) {
 
 function conditionalLog(level, levels, ...args) {
     if (levels[level]) {
-        console.log(`[${Date.now()}] [e-app]`, ...args);
+        console.log(...args);
     }
 }
 
@@ -33,7 +33,7 @@ function flush(buffer) {
     }
 
     while (buffer.length) {
-        console.log('[e-app][perf]', ...buffer.shift());
+        console.log(...buffer.shift());
     }
 }
 

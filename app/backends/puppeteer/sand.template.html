@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        (function() {
+            window.init = function (payload) {
+                return [{ path: [] }];
+            };
+
+            window.fill = function (payload) {
+                payload.content = undefined; // no need to transfer back the filler
+
+                return payload;
+            };
+
+            window.reloadWorker = function () { };
+
+            window.exec = function (payload) {
+                // the original message should be ready to accept 3 new props:
+                // - error
+                // - result
+                // - correct
+                payload.error = undefined;
+                payload.result = {};
+                payload.correct = 'correct';
+
+                return payload;
+            };
+        })();
+    </script>
+</head>
+<body>
+</body>
+</html>

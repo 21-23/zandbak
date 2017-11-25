@@ -85,7 +85,7 @@
                 } else {
                     var result = evalResult[1];
 
-                    payload.result = result;
+                    payload.result = JSON.stringify(result);
 
                     if (areSameArrays(content.expected, result, content.expectedLength)) {
                         payload.correct = 'correct';

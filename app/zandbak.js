@@ -339,7 +339,12 @@ module.exports = function zandbak(options, backendOptions) {
             return instance;
         },
         exec: (task) => {
-            // TODO: if filler is "emptyFiller" - shall we immediately emit "solved"?
+            if (state.filler === emptyFiller) {
+                logger.error('Ignore task as filler is empty', task);
+
+                return instance;
+            }
+
             const validationError = validate(task.input, state.filler, validators);
 
             if (validationError) {

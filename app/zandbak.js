@@ -6,7 +6,7 @@ const createLogger = require('./logger');
 const { JOB_STATE, WORKER_STATE, JOB_INT_ERROR, JOB_TIMEOUT_ERROR, createJob, createWorkerInstance, createFiller, serializePath, hrtimeToMs } = require('./helpers');
 const contract = require('./backends/contract');
 
-const emptyFiller = createFiller('filler-empty', null, { sandbox: { reloadWorkers: true } });
+const emptyFiller = createFiller('filler-empty', null, { sandbox: { reloadWorkers: true }, filler: {} });
 
 
 function createBackend({ type, options }, logger) {
@@ -339,6 +339,12 @@ module.exports = function zandbak(options, backendOptions) {
             return instance;
         },
         exec: (task) => {
+            if (state.filler === emptyFiller) {
+                logger.error('Ignore task as filler is empty', task);
+
+                return instance;
+            }
+
             const validationError = validate(task.input, state.filler, validators);
 
             if (validationError) {
@@ -403,6 +409,7 @@ module.exports = function zandbak(options, backendOptions) {
         });
 
     process.on('uncaughtException', (error) => {
+        // TODO: emit error and force ZS to re-create zandbak
         logger.error('uncaughtException:', error);
         instance.destroy();
     });

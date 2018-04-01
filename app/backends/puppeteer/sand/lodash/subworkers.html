@@ -51,7 +51,8 @@
                         payload: {
                             path: payload.path,
                             fillerId: payload.fillerId,
-                            content: payload.content
+                            content: payload.content,
+                            options: payload.options,
                         }
                     });
                 });
@@ -78,7 +79,6 @@
 
             window.init = function (payload) {
                 var promises = [];
-
                 for (var counter = 0; counter < payload.subworkersCount; counter++) {
                     promises.push(createSubworker(++subworkerCounter));
                 }

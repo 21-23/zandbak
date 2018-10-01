@@ -9,6 +9,7 @@
     "test:func:lodash": "node ./testers/test-func-lodash.js",
     "test:func:lodash:sw": "node ./testers/test-func-lodash-sw.js",
     "test:func:css": "node ./testers/test-func-css.js",
+    "test:func:js": "node ./testers/test-func-js.js",
     "test:perf:lodash": "node ./testers/test-perf-lodash.js",
     "test:perf:lodash:sw": "node ./testers/test-perf-lodash-sw.js",
     "test:comparator": "node ./testers/test-comparator.js",
@@ -24,6 +25,7 @@
   "license": "LGPL-3.0",
   "private": true,
   "dependencies": {
+    "acorn": "6.0.2",
     "electron": "1.8.4",
     "esprima": "4.0.0",
     "lodash.uniqueid": "^4.0.1",

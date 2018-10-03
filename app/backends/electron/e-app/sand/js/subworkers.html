@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        (function() {
+            var ipcRenderer = require('electron').ipcRenderer;
+            var subworkerCounter = 0;
+            var subworkers = {};
+
+            function onSubworkerMessage(event, subworkerId) {
+                var data = event.data;
+
+                switch(data.type) {
+                    case 'wrk::created':
+                        return ipcRenderer.send('wrk::created', {
+                            path: [subworkerId].concat(data.payload.path)
+                        });
+                    case 'wrk::filled':
+                        return ipcRenderer.send('wrk::filled', {
+                            path: [subworkerId].concat(data.payload.path),
+                            fillerId: data.payload.fillerId
+                        });
+                    case 'wrk::done':
+                        data.payload.path = [subworkerId].concat(data.payload.path)
+                        return ipcRenderer.send('wrk::done', data.payload);
+                }
+            }
+
+            function createSubworker(subworkerId) {
+                var subworker = new Worker('../../../../_common/js/worker.js');
+
+                subworkers[subworkerId] = subworker;
+                subworker.addEventListener('message', function (event) {
+                    onSubworkerMessage(event, subworkerId);
+                });
+
+                subworker.postMessage({
+                    type: 'wrk:>init',
+                    payload: {
+                        path: [subworkerId]
+                    }
+                });
+            }
+
+            function onWorkerInit(payload) {
+                for (var counter = 0; counter < payload.subworkersCount; counter++) {
+                    createSubworker(++subworkerCounter);
+                }
+            }
+
+            function onWorkerFill(payload) {
+                var subworkerId = payload.path.shift();
+                var subworker = subworkers[subworkerId];
+
+                subworker.postMessage({
+                    type: 'wrk:>fill',
+                    payload: {
+                        path: payload.path,
+                        fillerId: payload.fillerId,
+                        content: payload.content,
+                        options: payload.options,
+                    }
+                });
+            }
+
+            function onWorkerExec(payload) {
+                var subworkerId = payload.path.shift();
+                var subworker = subworkers[subworkerId];
+
+                subworker.postMessage({
+                    type: 'wrk:>exec',
+                    payload: payload,
+                });
+            }
+
+            function onWorkerReload(payload) {
+                var subworkerId = payload.path.shift();
+                var subworker = subworkers[subworkerId];
+
+                if (payload.path.length !== 0) {
+                    return subworker.postMessage({
+                        type: 'wrk:>reload',
+                        payload: {
+                            path: payload.path,
+                        }
+                    });
+                }
+
+                subworker.terminate();
+                subworkers[subworkerId] = undefined;
+
+                // create new subworker
+                createSubworker(subworkerId);
+            }
+
+            ipcRenderer.on('message', function (event, message) {
+                switch (message.type) {
+                    case 'wrk:>init':
+                        return onWorkerInit(message.payload);
+                    case 'wrk:>fill':
+                        return onWorkerFill(message.payload);
+                    case 'wrk:>exec':
+                        return onWorkerExec(message.payload);
+                    case 'wrk:>reload':
+                        return onWorkerReload(message.payload);
+                    default:
+                        console.error('Unknown message', message);
+
+                }
+            });
+        })();
+    </script>
+</head>
+<body>
+</body>
+</html>

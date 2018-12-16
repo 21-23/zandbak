@@ -30,6 +30,9 @@ const rounds = [
             input: `<div data-qdid="0" class="parent">
                         <span data-qdid="1">child 0</span>
                         <h1 data-qdid="2">child 1</h1>
+                    </div>
+                    <div data-qdid="3">
+                        <div data-qdid="4">another root</div>
                     </div>`,
             expected: ['0'] // no need to parse qdid
         },
@@ -86,6 +89,28 @@ const rounds = [
             },
         },
     },
+    {
+        content: {
+            input: `<div data-qdid="0">
+                        <div class="firstborn" data-qdid="1"></div>
+                        <div id="second-son" data-qdid="2"></div>
+                        <span data-qdid="3"></span>
+                        <div data-qdid="4"></div>
+                        <span data-qdid="5"></span>
+                    </div>`,
+            expected: '["2", "3", "4", "5"]',
+        },
+        options: {
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 500,
+            },
+            filler: {
+                bannedCharacters: [','],
+            },
+        },
+    }
 ];
 
 
@@ -123,6 +148,14 @@ function onTaskSolved({ task, error, result, correct }) {
             assert.ok(error);
             assert.ifError(result);
             return;
+        case 'task-11':
+            return assert.equal(correct, 'incorrect');
+        case 'task-12':
+            assert.ok(error);
+            assert.ifError(result);
+            return;
+        case 'task-13':
+            return assert.equal(correct, 'correct');
         default:
             return assert.ok(false, 'unknown task id');
     }
@@ -160,7 +193,17 @@ setTimeout(() => {
         .exec({ id: 'task-10', input: 'nth-child(' });
 }, 7000);
 setTimeout(() => {
-    sandbox.resetWith(null);
+    sandbox
+        .resetWith(rounds[3]);
+}, 8000);
+setTimeout(() => {
+    sandbox
+        .exec({ id: 'task-11', input: 'div > div' })
+        .exec({ id: 'task-12', input: '#second-son, span' })
+        .exec({ id: 'task-13', input: 'div > *:not(.firstborn)' });
 }, 9000);
+setTimeout(() => {
+    sandbox.resetWith(null);
+}, 11000);
 
-setTimeout(sandbox.destroy, 10000);
+setTimeout(sandbox.destroy, 15000);

@@ -7,10 +7,10 @@
     <script src="../../../_common/areSameArrays.js"></script>
 </head>
 <body>
-    <div id="qd-scope"></div>
     <script>
         (function() {
-            var scope = document.getElementById('qd-scope');
+            var range = document.createRange();
+            var scope = range.createContextualFragment('');
             var resultBackup = JSON.stringify([]);
             var content = {
                 input: '',
@@ -64,7 +64,7 @@
                     content.expectedLength = content.expected.length;
                 }
 
-                scope.innerHTML = content.input;
+                scope = range.createContextualFragment(content.input);
                 randomizeQdidAttribute(scope, content.qdidAttr);
 
                 payload.content = undefined; // no need to transfer back the filler

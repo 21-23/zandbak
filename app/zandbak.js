@@ -12,7 +12,7 @@ const emptyFiller = createFiller('filler-empty', null, { sandbox: { reloadWorker
 function createBackend({ type, options }, logger) {
     // require backend lazily to avoid redundand memory usage
     const backendPath = `./backends/${type}/${type}`;
-    const backend = require(backendPath);
+    const backend = require(backendPath); // eslint-disable-line global-require
 
     return backend(options, logger);
 }
@@ -33,7 +33,7 @@ function createValidators(options) {
     }
 
     options.forEach((validatorOptions) => {
-        validators.push(require(`./validators/${validatorOptions.name}`));
+        validators.push(require(`./validators/${validatorOptions.name}`)); // eslint-disable-line global-require
     });
 
     return validators;
@@ -91,7 +91,7 @@ function executeJob(job, worker, state) {
             // error: undefined     <-- ninja property filled by sand
             // result: {}           <-- ninja property filled by sand
             // correct: ''          <-- ninja property filled by sand
-        }
+        },
     });
 }
 
@@ -173,7 +173,7 @@ function onWorkerEmpty(path, { backend, filler, workers }) {
             content: filler.content,
             fillerId: filler.fillerId,
             options: filler.options.sandbox,
-        }
+        },
     });
 }
 
@@ -190,7 +190,7 @@ function onWorkerReady(path, workerFillerId, state) {
                 content: filler.content,
                 fillerId: filler.fillerId,
                 options: filler.options.sandbox,
-            }
+            },
         });
     }
 
@@ -221,7 +221,7 @@ function onJobDone(payload, state) {
             task: payload.task,
             error: payload.error,
             result: payload.result,
-            correct: payload.correct
+            correct: payload.correct,
         });
     }
 
@@ -242,7 +242,7 @@ function onJobDone(payload, state) {
             type: contract.commands.RELOAD_WORKER,
             payload: {
                 path: worker.path,
-            }
+            },
         });
     }
 
@@ -255,7 +255,7 @@ function onJobDone(payload, state) {
                 content: filler.content,
                 fillerId: filler.fillerId,
                 options: filler.options.sandbox,
-            }
+            },
         });
     }
 
@@ -278,7 +278,7 @@ function onJobTimeout(job, worker, { backend, emitter, jobs, logger }) {
         type: contract.commands.RELOAD_WORKER,
         payload: {
             path: worker.path,
-        }
+        },
     });
 }
 
@@ -300,7 +300,7 @@ function resetWith({ backend, emitter, jobs, logger, workers }) {
             type: contract.commands.RELOAD_WORKER,
             payload: {
                 path: worker.path,
-            }
+            },
         });
     });
 }
@@ -333,7 +333,7 @@ module.exports = function zandbak(options, backendOptions) {
 
             state.backend.send({
                 type: contract.commands.FLUSH,
-                payload: {}
+                payload: {},
             });
 
             return instance;
@@ -388,7 +388,7 @@ module.exports = function zandbak(options, backendOptions) {
             }
 
             return instance;
-        }
+        },
     };
 
     state.backend

@@ -17,8 +17,7 @@
     "test:perf:js:sw": "node ./testers/test-perf-js-sw.js",
     "test:comparator": "node ./testers/test-comparator.js",
     "test:validator": "node ./testers/test-validator.js",
-    "lint": "eslint ./app",
-    "precommit": "lint-staged"
+    "lint": "eslint ./app"
   },
   "repository": {
     "url": "git@github.com:21-23/zandbak.git",
@@ -28,18 +27,17 @@
   "license": "LGPL-3.0",
   "private": true,
   "dependencies": {
-    "acorn": "6.0.2",
-    "electron": "1.8.4",
-    "esprima": "4.0.0",
+    "acorn": "6.0.4",
+    "electron": "3.0.12",
+    "esprima": "4.0.1",
     "lodash.uniqueid": "^4.0.1",
     "puppeteer": "1.2.0"
   },
   "devDependencies": {
-    "eslint": "^3.12.2",
-    "eslint-config-airbnb-base": "^11.0.0",
-    "eslint-plugin-import": "^2.2.0",
-    "husky": "^0.12.0",
-    "lint-staged": "^3.2.5",
+    "eslint": "5.10.0",
+    "eslint-config-2123": "github:21-23/eslint-config-2123",
+    "husky": "1.2.1",
+    "lint-staged": "8.1.0",
     "lodash.isequal": "^4.5.0"
   }
 }

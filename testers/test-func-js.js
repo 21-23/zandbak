@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const assert = require('assert');
 
 const zandbak = require('../app/zandbak');
@@ -38,8 +39,8 @@ const rounds = [
                 "Adam"
             ]`,
             hidden: [
-                { input: '[{ "name": "hidden name" }]', expected: '["hidden name"]' }
-            ]
+                { input: '[{ "name": "hidden name" }]', expected: '["hidden name"]' },
+            ],
         },
         options: {
             sandbox: {
@@ -57,7 +58,7 @@ const rounds = [
                 "state": "DC",
                 "list": ["W", "A", "S", "D"]
             }`,
-            expected: '"DC"'
+            expected: '"DC"',
         },
         options: {
             sandbox: {
@@ -68,7 +69,7 @@ const rounds = [
             },
             filler: { },
         },
-    }
+    },
 ];
 
 function onTaskSolved({ task, error, result, correct }) {
@@ -76,6 +77,7 @@ function onTaskSolved({ task, error, result, correct }) {
 
     switch (task.id) {
         case 'task-0':
+        case 'task-0.1':
             return assert.deepEqual(JSON.parse(result), ['Johnie', 'Johnie', 'Adam']);
         case 'task-1':
             assert.ok(error);
@@ -108,6 +110,7 @@ sandbox.resetWith(rounds[0]);
 setTimeout(() => {
     sandbox
         .exec({ id: 'task-0', input: 'return arg.map(a => a.name)' }) // OK
+        .exec({ id: 'task-0.1', input: 'return arg.flatMap(a => [a.name])' }) // OK
         .exec({ id: 'task-1', input: 'return arg.map(a a.name)' }) // internal error
         .exec({ id: 'task-2', input: 'return ["Johnie", "Johnie", "Adam"]' }); // partial
 }, 1000);

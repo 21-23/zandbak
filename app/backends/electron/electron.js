@@ -14,7 +14,7 @@ function createElectronApp(options) {
         electron,
         [electronAppPath].concat(JSON.stringify(options || {})),
         {
-            stdio: [null, 'pipe', 'pipe', 'ipc']
+            stdio: [null, 'pipe', 'pipe', 'ipc'],
         }
     );
 

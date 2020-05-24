@@ -117,7 +117,12 @@ function buildSandUrl(sand) {
 }
 
 function createWorker(options) {
-    const win = new BrowserWindow(args.browserWindow);
+    const win = new BrowserWindow(Object.assign({
+        webPreferences: {
+            nodeIntegration: true,
+            nodeIntegrationInWorker: true,
+        },
+    }, args.browserWindow));
     const webContents = win.webContents;
 
     if (args.showDevTools && args.browserWindow.show) {
@@ -224,7 +229,7 @@ ipcMain
                 state: INTERNAL_WORKER_STATE.ready,
                 path: [workerId].concat(message.path),
                 fillerId: message.fillerId,
-            }
+            },
         });
     })
     .on(INCOMING_WORKER_EVENTS.done, (event, message) => {

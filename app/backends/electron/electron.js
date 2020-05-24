@@ -12,7 +12,7 @@ const electronAppPath = path.join(__dirname, 'e-app', 'e-app.js');
 function createElectronApp(options) {
     const child = proc.spawn(
         electron,
-        [electronAppPath].concat(JSON.stringify(options || {})),
+        [electronAppPath].concat(JSON.stringify(options || {})).concat('--no-sandbox'),
         {
             stdio: [null, 'pipe', 'pipe', 'ipc'],
         }

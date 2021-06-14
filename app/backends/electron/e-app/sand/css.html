@@ -18,7 +18,6 @@
                 expectedLength: undefined,
                 qdidAttr: ''
             };
-            var ipcRenderer = require('electron').ipcRenderer;
 
             function evaluate(task, puzzleScope) {
                 // Throws a SYNTAX_ERR exception if the specified group of selectors is invalid.
@@ -46,7 +45,7 @@
             }
 
             function onWorkerInit() {
-                ipcRenderer.send('wrk::created', { path: [] });
+                window.qd.onWorkerCreated({ path: [] });
             }
 
             function onWorkerFill(payload) {
@@ -69,7 +68,7 @@
 
                 payload.content = undefined; // no need to transfer back the filler
 
-                ipcRenderer.send('wrk::filled', payload);
+                window.qd.onWorkerFilled(payload);
             }
 
             function onWorkerExec(payload) {
@@ -91,10 +90,10 @@
                     }
                 }
 
-                ipcRenderer.send('wrk::done', payload);
+                window.qd.onWorkerDone(payload);
             }
 
-            ipcRenderer.on('message', function (event, message) {
+            window.qd.onMessage(function (message) {
                 switch (message.type) {
                     case 'wrk:>init':
                         return onWorkerInit();

@@ -18,14 +18,13 @@
                 hidden: [] // array of objects { input: {JSON}, expected: {JSON} }
             };
             var inputCopies = 200;
-            var ipcRenderer = require('electron').ipcRenderer;
             var _lodash = Object.freeze(_);
             window.require = stubFun;
             window.process = stub;
 
             function evaluate(task, puzzleContent) {
                 try {
-                    var result = eval('(function(_, content, ipcRenderer, window, document, location, alert, $, require, process, global, setTimeout, setInterval, requestAnimationFrame, requestIdleCallback) {"use strict"; return _.chain(content).' + task.input + '.value()}).call(stub, _lodash, puzzleContent, stub, stub, stub, stub, stubFun, stub, stubFun, stub, stub, stubFun, stubFun, stubFun, stubFun)');
+                    var result = eval('(function(_, content, ipcRenderer, window, document, location, alert, $, require, process, global, setTimeout, setInterval, requestAnimationFrame, requestIdleCallback, qd) {"use strict"; return _.chain(content).' + task.input + '.value()}).call(stub, _lodash, puzzleContent, stub, stub, stub, stub, stubFun, stub, stubFun, stub, stub, stubFun, stubFun, stubFun, stubFun, stub)');
 
                     return [null, result];
                 } catch (e) {
@@ -55,7 +54,7 @@
             }
 
             function onWorkerInit() {
-                ipcRenderer.send('wrk::created', { path: [] });
+                window.qd.onWorkerCreated({ path: [] });
             }
 
             function onWorkerFill(payload) {
@@ -105,7 +104,7 @@
 
                 payload.content = undefined; // no need to transfer back the filler
 
-                ipcRenderer.send('wrk::filled', payload);
+                window.qd.onWorkerFilled(payload);
             }
 
             function onWorkerExec(payload) {
@@ -136,10 +135,10 @@
                     }
                 }
 
-                ipcRenderer.send('wrk::done', payload);
+                window.qd.onWorkerDone(payload);
             }
 
-            ipcRenderer.on('message', function (event, message) {
+            window.qd.onMessage(function (message) {
                 switch (message.type) {
                     case 'wrk:>init':
                         return onWorkerInit();

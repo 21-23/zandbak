@@ -117,12 +117,19 @@ function buildSandUrl(sand) {
 }
 
 function createWorker(options) {
-    const win = new BrowserWindow(Object.assign({
-        webPreferences: {
-            nodeIntegration: true,
-            nodeIntegrationInWorker: true,
-        },
-    }, args.browserWindow));
+    const win = new BrowserWindow(
+        Object.assign(
+            {
+                webPreferences: {
+                    nodeIntegration: false,
+                    nodeIntegrationInWorker: false,
+                    contextIsolation: true,
+                    preload: path.join(__dirname, 'preload.js'),
+                },
+            },
+            args.browserWindow
+        )
+    );
     const webContents = win.webContents;
 
     if (args.showDevTools && args.browserWindow.show) {

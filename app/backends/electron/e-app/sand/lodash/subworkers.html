@@ -3,7 +3,6 @@
 <head>
     <script>
         (function() {
-            var ipcRenderer = require('electron').ipcRenderer;
             var subworkerCounter = 0;
             var subworkers = {};
 
@@ -12,17 +11,17 @@
 
                 switch(data.type) {
                     case 'wrk::created':
-                        return ipcRenderer.send('wrk::created', {
+                        return window.qd.onWorkerCreated({
                             path: [subworkerId].concat(data.payload.path)
                         });
                     case 'wrk::filled':
-                        return ipcRenderer.send('wrk::filled', {
+                        return window.qd.onWorkerFilled({
                             path: [subworkerId].concat(data.payload.path),
                             fillerId: data.payload.fillerId
                         });
                     case 'wrk::done':
                         data.payload.path = [subworkerId].concat(data.payload.path)
-                        return ipcRenderer.send('wrk::done', data.payload);
+                        return window.qd.onWorkerDone(data.payload);
                 }
             }
 
@@ -93,7 +92,7 @@
                 createSubworker(subworkerId);
             }
 
-            ipcRenderer.on('message', function (event, message) {
+            window.qd.onMessage(function (message) {
                 switch (message.type) {
                     case 'wrk:>init':
                         return onWorkerInit(message.payload);

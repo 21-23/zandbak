@@ -28,7 +28,7 @@
   "private": true,
   "dependencies": {
     "acorn": "6.0.4",
-    "electron": "^9.0.0",
+    "electron": "^13.1.2",
     "esprima": "4.0.1",
     "lodash.uniqueid": "^4.0.1",
     "puppeteer": "1.11.0"

@@ -31,7 +31,7 @@
     "electron": "^13.1.2",
     "esprima": "4.0.1",
     "lodash.uniqueid": "^4.0.1",
-    "puppeteer": "1.11.0"
+    "puppeteer": "1.13.0"
   },
   "devDependencies": {
     "eslint": "5.10.0",

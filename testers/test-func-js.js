@@ -70,6 +70,21 @@ const rounds = [
             filler: { },
         },
     },
+    {
+        content: {
+            input: '"The quick brown fox jumps over the lazy dog. If the dog reacted, was it really lazy?"',
+            expected: '"The quick brown fox jumps over the lazy monkey. If the monkey reacted, was it really lazy?"',
+        },
+        options: {
+            sandbox: {
+                reloadWorkers: false,
+                refillWorkers: false,
+                taskTimeoutMs: 50,
+                inputCopies: 20,
+            },
+            filler: {},
+        },
+    },
 ];
 
 function onTaskSolved({ task, error, result, correct }) {
@@ -95,6 +110,8 @@ function onTaskSolved({ task, error, result, correct }) {
             assert.ok(error);
             assert.ifError(result);
             return;
+        case 'task-6':
+            return assert.deepEqual(JSON.parse(result), 'The quick brown fox jumps over the lazy monkey. If the monkey reacted, was it really lazy?');
         default:
             return assert.ok(false, 'unknown task id');
     }
@@ -125,7 +142,12 @@ setTimeout(() => {
         .exec({ id: 'task-5', input: 'const x = [].map({ } })' }); // internal error
 }, 5000);
 setTimeout(() => {
-    sandbox.resetWith(null);
+    sandbox
+        .resetWith(rounds[2])
+        .exec({ id: 'task-6', input: 'return arg.replaceAll("dog", "monkey");' }); // OK
 }, 7000);
+setTimeout(() => {
+    sandbox.resetWith(null);
+}, 9000);
 
-setTimeout(sandbox.destroy, 10000);
+setTimeout(sandbox.destroy, 12000);

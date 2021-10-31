@@ -98,6 +98,8 @@
             }
 
             window.qd.onMessage(function (message) {
+                console.error('CSS SAND MESSAGE', JSON.stringify(message));
+
                 switch (message.type) {
                     case 'wrk:>init':
                         return onWorkerInit();

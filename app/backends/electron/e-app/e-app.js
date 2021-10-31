@@ -116,6 +116,9 @@ function buildSandUrl(sand) {
         protocol: 'file',
         slashes: true,
         pathname: path.join(__dirname, 'sand', `${sand}.html`),
+        query: {
+            rnd: `${Date.now()},${Math.random()}`,
+        },
     });
 }
 
@@ -145,9 +148,11 @@ function createWorker(options) {
             type: OUTCOMING_WORKER_COMMANDS.init,
             payload: options,
         });
+        flush();
     });
     webContents.on('did-fail-load', (event) => {
         perf('did-fail-load', JSON.stringify(event));
+        flush();
     });
 
     webContents.loadURL(buildSandUrl(args.sand), args.urlOptions).then(() => {
@@ -199,6 +204,7 @@ function exec(payload) {
         type: OUTCOMING_WORKER_COMMANDS.exec,
         payload,
     });
+    flush();
 }
 
 process.on('message', ({ type, payload }) => {

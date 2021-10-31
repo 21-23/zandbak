@@ -102,6 +102,9 @@ const OUTCOMING_EVENTS = {
 const args = JSON.parse(process.argv[2]);
 const { error, perf, flush } = eAppLogger(args.logLevel);
 
+error('===================', JSON.stringify(process.argv));
+flush();
+
 function destroy() {
     app.exit(0);
 
@@ -137,13 +140,18 @@ function createWorker(options) {
     }
 
     webContents.on('did-finish-load', () => {
+        perf('did-finish-load');
         webContents.send('message', {
             type: OUTCOMING_WORKER_COMMANDS.init,
             payload: options,
         });
     });
 
-    webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
+    webContents.loadURL(buildSandUrl(args.sand), args.urlOptions).then(() => {
+        perf('createWorker loadURL DONE');
+    }, (error) => {
+        perf('createWorker loadURL CATCH', error);
+    });
 }
 
 function fillWorker({ path, content, fillerId, options }) {
@@ -162,6 +170,8 @@ function reloadWorker({ path }) {
     const win = BrowserWindow.fromId(workerId);
     const webContents = win.webContents;
 
+    perf('reloadWorker:', JSON.stringify(path));
+
     if (path.length !== 0) {
         // path is not empty => subworkers are used => it is up to subworkers
         //      to decide how to reload their subworkers
@@ -171,7 +181,11 @@ function reloadWorker({ path }) {
         });
     }
 
-    webContents.loadURL(buildSandUrl(args.sand), args.urlOptions);
+    webContents.loadURL(buildSandUrl(args.sand), args.urlOptions).then(() => {
+        perf('reloadWorker loadURL DONE');
+    }, (error) => {
+        perf('reloadWorker loadURL CATCH', error);
+    });
 }
 
 function exec(payload) {
@@ -185,7 +199,7 @@ function exec(payload) {
 }
 
 process.on('message', ({ type, payload }) => {
-    perf('onHostMessage type:', type);
+    perf('onHostMessage type:', type, JSON.stringify(payload));
 
     switch (type) {
         case INCOMING_COMMANDS.createWorker:
@@ -207,6 +221,7 @@ process.on('message', ({ type, payload }) => {
 
 ipcMain
     .on(INCOMING_WORKER_EVENTS.created, (event, message) => {
+        perf('ipcMain CREATED:', JSON.stringify(message));
         if (!message) {
             return error(INCOMING_WORKER_EVENTS.created, 'no message');
         }
@@ -223,6 +238,7 @@ ipcMain
         });
     })
     .on(INCOMING_WORKER_EVENTS.filled, (event, message) => {
+        perf('ipcMain FILLED:', JSON.stringify(message));
         if (!message) {
             return error(INCOMING_WORKER_EVENTS.filled, 'no message');
         }
@@ -240,6 +256,7 @@ ipcMain
         });
     })
     .on(INCOMING_WORKER_EVENTS.done, (event, message) => {
+        perf('ipcMain DONE:', JSON.stringify(message));
         if (!message) {
             return error(INCOMING_WORKER_EVENTS.done, 'no message');
         }

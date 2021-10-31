@@ -9,6 +9,10 @@
 <body>
     <script>
         (function() {
+            window.addEventListener('error', function(event) {
+                console.error('CSS SAND ERROR', JSON.stringify(event));
+            })
+
             var range = document.createRange();
             var scope = range.createContextualFragment('');
             var resultBackup = JSON.stringify([]);

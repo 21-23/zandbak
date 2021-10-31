@@ -146,6 +146,9 @@ function createWorker(options) {
             payload: options,
         });
     });
+    webContents.on('did-fail-load', (event) => {
+        perf('did-fail-load', JSON.stringify(event));
+    });
 
     webContents.loadURL(buildSandUrl(args.sand), args.urlOptions).then(() => {
         perf('createWorker loadURL DONE');

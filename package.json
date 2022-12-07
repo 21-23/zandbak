@@ -37,7 +37,7 @@
     "eslint": "5.10.0",
     "eslint-config-2123": "github:21-23/eslint-config-2123",
     "husky": "1.2.1",
-    "lint-staged": "8.1.0",
+    "lint-staged": "13.1.0",
     "lodash.isequal": "^4.5.0"
   }
 }
